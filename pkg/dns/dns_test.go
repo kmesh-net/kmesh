@@ -149,12 +149,18 @@ func TestAddDomainInQueueDedupesQueuedDomain(t *testing.T) {
 	}
 	defer r.refreshQueue.ShutDown()
 
-	for i := 0; i < 3; i++ {
-		r.AddDomainInQueue(&DomainInfo{Domain: "www.kmesh.test.", RefreshRate: 15 * time.Second}, 0)
+	for _, rate := range []time.Duration{15 * time.Second, 5 * time.Second, 60 * time.Second} {
+		r.AddDomainInQueue(&DomainInfo{Domain: "www.kmesh.test.", RefreshRate: rate}, 0)
 	}
 
 	if got := r.refreshQueue.Len(); got != 1 {
 		t.Fatalf("expected one queued refresh for the domain, got %d", got)
+	}
+	r.RLock()
+	rate := r.cache["www.kmesh.test."].RefreshRate
+	r.RUnlock()
+	if rate != 5*time.Second {
+		t.Fatalf("expected the strictest refresh rate (5s) to be kept, got %v", rate)
 	}
 }
 
@@ -169,15 +175,18 @@ func TestAddDomainInQueueSingleRefreshLoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	r.delegates = []Resolver{NewUpstreamResolver(fakeDNSServer.Server.PacketConn.LocalAddr().String())}
+
+	// Enqueue before the worker starts so the four calls collapse into one
+	// queue entry deterministically; a worker racing the calls could re-resolve
+	// once more and make the count depend on scheduling.
+	for i := 0; i < 4; i++ {
+		r.AddDomainInQueue(&DomainInfo{Domain: domain, RefreshRate: 15 * time.Second}, 0)
+	}
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	go r.StartDnsResolver(stopCh)
 
-	for i := 0; i < 4; i++ {
-		r.AddDomainInQueue(&DomainInfo{Domain: domain, RefreshRate: 15 * time.Second}, 0)
-	}
-
-	// With a 1s TTL a single loop notifies roughly once per second; one loop
+	// With a 1s TTL a single loop notifies at t=0,1,2,3s within 3.5s; one loop
 	// per enqueue would notify about four times as often.
 	notifications := 0
 	deadline := time.After(3500 * time.Millisecond)
@@ -190,7 +199,7 @@ func TestAddDomainInQueueSingleRefreshLoop(t *testing.T) {
 		}
 		break
 	}
-	if notifications < 1 || notifications > 5 {
-		t.Fatalf("expected a single refresh loop (1..5 notifications in 3.5s), got %d", notifications)
+	if notifications < 3 || notifications > 4 {
+		t.Fatalf("expected a single refresh loop (3..4 notifications in 3.5s), got %d", notifications)
 	}
 }

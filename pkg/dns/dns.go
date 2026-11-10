@@ -320,10 +320,16 @@ func (r *DNSResolver) AddDomainInQueue(info *DomainInfo, time time.Duration) {
 		entry = &DomainCacheEntry{}
 		r.cache[info.Domain] = entry
 	}
-	entry.RefreshRate = info.RefreshRate
+	// Several clusters or workloads may share a hostname with different refresh
+	// rates; keep the strictest one so the single loop satisfies all of them.
+	if entry.RefreshRate == 0 || (info.RefreshRate > 0 && info.RefreshRate < entry.RefreshRate) {
+		entry.RefreshRate = info.RefreshRate
+	}
 	r.Unlock()
 
-	// The queue is keyed by domain: if the domain is already queued or in
-	// flight this is a no-op, so repeated calls do not start extra refresh loops.
+	// The queue is keyed by domain, so a domain that is already queued is not
+	// enqueued twice: one waiting in the delay heap is refreshed now and keeps a
+	// single scheduled refresh, one in flight is resolved once more after it
+	// finishes. Either way there is only ever one refresh loop per domain.
 	r.refreshQueue.AddAfter(info.Domain, time)
 }
