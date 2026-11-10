@@ -62,6 +62,7 @@ var (
 	trafficType       = ""
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
+	DataplaneModeKmesh               = "Kmesh"
 	KmeshUseWaypointLabel            = "istio.io/use-waypoint"
 	KmeshWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
 
