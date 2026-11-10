@@ -116,10 +116,7 @@ func TestDNS(t *testing.T) {
 			Domain:      testcase.domain,
 			RefreshRate: testcase.refreshRate,
 		}
-		testDNSResolver.Lock()
-		testDNSResolver.cache[testcase.domain] = &DomainCacheEntry{}
-		testDNSResolver.Unlock()
-		testDNSResolver.refreshQueue.AddAfter(input, 0)
+		testDNSResolver.AddDomainInQueue(input, 0)
 
 		time.Sleep(2 * time.Second)
 
@@ -141,4 +138,59 @@ func TestDNS(t *testing.T) {
 		wg.Done()
 	}
 	wg.Wait()
+}
+
+// Repeated AddDomainInQueue calls for one hostname must collapse into a single
+// queue entry instead of starting one refresh loop per call.
+func TestAddDomainInQueueDedupesQueuedDomain(t *testing.T) {
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.refreshQueue.ShutDown()
+
+	for i := 0; i < 3; i++ {
+		r.AddDomainInQueue(&DomainInfo{Domain: "www.kmesh.test.", RefreshRate: 15 * time.Second}, 0)
+	}
+
+	if got := r.refreshQueue.Len(); got != 1 {
+		t.Fatalf("expected one queued refresh for the domain, got %d", got)
+	}
+}
+
+func TestAddDomainInQueueSingleRefreshLoop(t *testing.T) {
+	fakeDNSServer := NewFakeDNSServer()
+	const domain = "www.kmesh.test."
+	fakeDNSServer.SetHosts(domain, 1)
+	fakeDNSServer.SetTTL(1)
+
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.delegates = []Resolver{NewUpstreamResolver(fakeDNSServer.Server.PacketConn.LocalAddr().String())}
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go r.StartDnsResolver(stopCh)
+
+	for i := 0; i < 4; i++ {
+		r.AddDomainInQueue(&DomainInfo{Domain: domain, RefreshRate: 15 * time.Second}, 0)
+	}
+
+	// With a 1s TTL a single loop notifies roughly once per second; one loop
+	// per enqueue would notify about four times as often.
+	notifications := 0
+	deadline := time.After(3500 * time.Millisecond)
+	for {
+		select {
+		case <-r.DnsChan:
+			notifications++
+			continue
+		case <-deadline:
+		}
+		break
+	}
+	if notifications < 1 || notifications > 5 {
+		t.Fatalf("expected a single refresh loop (1..5 notifications in 3.5s), got %d", notifications)
+	}
 }
