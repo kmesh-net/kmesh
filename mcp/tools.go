@@ -401,8 +401,7 @@ func (h *McpHandler) HandleListDaemonPods(ctx context.Context, req mcp.CallToolR
 }
 
 func (h *McpHandler) HandleGetMeshNamespaces(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	// Match the daemon's enrollment check, which compares the label value
-	// case-insensitively (pkg/utils/enroll.go ShouldEnroll).
+	// Match the daemon's case-insensitive enrollment check.
 	namespaces, err := h.cliClient.Kube().CoreV1().Namespaces().List(ctx, metav1.ListOptions{
 		LabelSelector: constants.DataPlaneModeLabel,
 	})

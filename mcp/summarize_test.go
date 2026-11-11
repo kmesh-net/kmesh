@@ -117,7 +117,6 @@ func TestFormatDumpSummary(t *testing.T) {
 }
 
 func TestFormatDumpSummaryReducesSize(t *testing.T) {
-	// Simulate a realistic dump: many items with verbose fields.
 	var b strings.Builder
 	b.WriteString(`{"workloads": [`)
 	for i := 0; i < 200; i++ {
@@ -134,14 +133,12 @@ func TestFormatDumpSummaryReducesSize(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	// Summary must stay compact even when the raw dump is huge.
 	if len(out) > len(raw)/10 {
 		t.Fatalf("summary (%d bytes) not meaningfully smaller than raw (%d bytes)", len(out), len(raw))
 	}
 }
 
 func TestFormatDumpSummaryOmitsOverCap(t *testing.T) {
-	// Build a dump with more items than maxSummaryItems.
 	var b strings.Builder
 	b.WriteString(`{"workloads": [`)
 	total := maxSummaryItems + 7

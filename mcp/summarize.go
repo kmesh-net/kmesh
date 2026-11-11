@@ -133,8 +133,7 @@ func summarizeItem(item map[string]any) map[string]any {
 	return out
 }
 
-// appendValues collects primitive values from nested maps and slices,
-// skipping object keys so that filters match data, not field names.
+// appendValues collects primitive values, skipping object keys.
 func appendValues(sb *strings.Builder, v any) {
 	switch t := v.(type) {
 	case map[string]any:
@@ -154,8 +153,7 @@ func appendValues(sb *strings.Builder, v any) {
 	}
 }
 
-// itemMatches matches the filter against entry field values only (case-insensitive).
-// Object keys are excluded so filters like "name" do not match every entry.
+// itemMatches matches the filter against entry field values only.
 func itemMatches(item map[string]any, filter string) bool {
 	var sb strings.Builder
 	appendValues(&sb, item)
