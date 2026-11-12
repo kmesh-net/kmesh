@@ -18,6 +18,7 @@ package kmeshmanage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -187,6 +188,331 @@ func waitAndCheckManageAction(t *testing.T, enabled *atomic.Bool, disabled *atom
 	assert.Equal(t, disableExpected, disabled.Load(), "unexpected value for disabled flag")
 }
 
+func TestReconcileKmeshManage(t *testing.T) {
+	tests := []struct {
+		name      string
+		enable    bool
+		failAt    string
+		wantSteps []string
+		wantErr   string
+	}{
+		{
+			name:      "network namespace lookup failure",
+			enable:    true,
+			failAt:    "netns",
+			wantSteps: []string{"netns"},
+			wantErr:   "get network namespace",
+		},
+		{
+			name:      "control state failure",
+			enable:    true,
+			failAt:    "control",
+			wantSteps: []string{"netns", "control"},
+			wantErr:   "update Kmesh control state",
+		},
+		{
+			name:      "XDP attach failure",
+			enable:    true,
+			failAt:    "link-xdp",
+			wantSteps: []string{"netns", "control", "link-xdp"},
+			wantErr:   "attach XDP program",
+		},
+		{
+			name:      "TC attach failure",
+			enable:    true,
+			failAt:    "link-tc",
+			wantSteps: []string{"netns", "control", "link-xdp", "link-tc"},
+			wantErr:   "attach TC program",
+		},
+		{
+			name:      "enable succeeds",
+			enable:    true,
+			wantSteps: []string{"netns", "control", "link-xdp", "link-tc"},
+		},
+		{
+			name:      "XDP detach failure",
+			failAt:    "unlink-xdp",
+			wantSteps: []string{"netns", "control", "unlink-xdp"},
+			wantErr:   "detach XDP program",
+		},
+		{
+			name:      "TC detach failure",
+			failAt:    "unlink-tc",
+			wantSteps: []string{"netns", "control", "unlink-xdp", "unlink-tc"},
+			wantErr:   "detach TC program",
+		},
+		{
+			name:      "disable succeeds",
+			wantSteps: []string{"netns", "control", "unlink-xdp", "unlink-tc"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			steps := make([]string, 0, len(tt.wantSteps))
+			controller := &KmeshManageController{xdpProgFd: 11, tcProgFd: 12, mode: constants.DualEngineMode}
+			controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+				steps = append(steps, "netns")
+				if tt.failAt == "netns" {
+					return "", errors.New("netns unavailable")
+				}
+				return "test-ns", nil
+			}
+			controller.handleManage = func(_ string, enable bool) error {
+				steps = append(steps, "control")
+				assert.Equal(t, tt.enable, enable)
+				if tt.failAt == "control" {
+					return errors.New("control failed")
+				}
+				return nil
+			}
+			controller.linkXDP = func(_ string, fd int, mode string) error {
+				steps = append(steps, "link-xdp")
+				assert.Equal(t, 11, fd)
+				assert.Equal(t, constants.DualEngineMode, mode)
+				if tt.failAt == "link-xdp" {
+					return errors.New("XDP failed")
+				}
+				return nil
+			}
+			controller.linkTC = func(_ string, fd int) error {
+				steps = append(steps, "link-tc")
+				assert.Equal(t, 12, fd)
+				if tt.failAt == "link-tc" {
+					return errors.New("TC failed")
+				}
+				return nil
+			}
+			controller.unlinkXDP = func(_ string, mode string) error {
+				steps = append(steps, "unlink-xdp")
+				assert.Equal(t, constants.DualEngineMode, mode)
+				if tt.failAt == "unlink-xdp" {
+					return errors.New("XDP failed")
+				}
+				return nil
+			}
+			controller.unlinkTC = func(_ string, fd int) error {
+				steps = append(steps, "unlink-tc")
+				assert.Equal(t, 12, fd)
+				if tt.failAt == "unlink-tc" {
+					return errors.New("TC failed")
+				}
+				return nil
+			}
+
+			err := controller.reconcileKmeshManage(podWithLabel, tt.enable)
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantErr)
+			}
+			assert.Equal(t, tt.wantSteps, steps)
+		})
+	}
+}
+
+func TestEnableKmeshManageRetriesBeforeAnnotating(t *testing.T) {
+	pod := podWithLabel.DeepCopy()
+	namespace := nsWithoutLabel.DeepCopy()
+	client := fake.NewSimpleClientset(pod.DeepCopy(), namespace.DeepCopy())
+	controller, err := NewKmeshManageController(client, nil, 11, 12, constants.DualEngineMode)
+	require.NoError(t, err)
+	t.Cleanup(controller.queue.ShutDown)
+
+	require.NoError(t, controller.podInformer.GetStore().Add(pod))
+	require.NoError(t, controller.namespaceInformer.GetStore().Add(namespace))
+
+	controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+		return "test-ns", nil
+	}
+	controller.handleManage = func(string, bool) error {
+		return nil
+	}
+	var xdpAttempts atomic.Int32
+	controller.linkXDP = func(string, int, string) error {
+		if xdpAttempts.Add(1) <= 2 {
+			return errors.New("transient XDP failure")
+		}
+		return nil
+	}
+	controller.linkTC = func(string, int) error {
+		return nil
+	}
+
+	controller.enableKmeshManage(pod)
+	stored, err := client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+
+	assert.True(t, controller.processItems())
+	stored, err = client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+
+	assert.True(t, controller.processItems())
+	assert.Equal(t, int32(3), xdpAttempts.Load())
+
+	assert.True(t, controller.processItems())
+	stored, err = client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+}
+
+func TestEnableKmeshManageRetriesAfterFastRetries(t *testing.T) {
+	pod := podWithLabel.DeepCopy()
+	namespace := nsWithoutLabel.DeepCopy()
+	client := fake.NewSimpleClientset(pod.DeepCopy(), namespace.DeepCopy())
+	controller, err := NewKmeshManageController(client, nil, 11, 12, constants.DualEngineMode)
+	require.NoError(t, err)
+	t.Cleanup(controller.queue.ShutDown)
+
+	require.NoError(t, controller.podInformer.GetStore().Add(pod))
+	require.NoError(t, controller.namespaceInformer.GetStore().Add(namespace))
+
+	controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+		return "test-ns", nil
+	}
+	controller.handleManage = func(string, bool) error {
+		return nil
+	}
+	controller.reconcileRetryDelay = time.Millisecond
+	var xdpAttempts atomic.Int32
+	controller.linkXDP = func(string, int, string) error {
+		if xdpAttempts.Add(1) <= MaxRetries+2 {
+			return errors.New("persistent XDP failure")
+		}
+		return nil
+	}
+	controller.linkTC = func(string, int) error {
+		return nil
+	}
+
+	controller.enableKmeshManage(pod)
+	for range MaxRetries + 1 {
+		assert.True(t, controller.processItems())
+	}
+	assert.Equal(t, int32(MaxRetries+2), xdpAttempts.Load())
+
+	// The next item is delivered by the slow retry scheduled after the fast
+	// retry budget is exhausted. It must still reconcile successfully.
+	assert.True(t, controller.processItems())
+	assert.Equal(t, int32(MaxRetries+3), xdpAttempts.Load())
+	assert.True(t, controller.processItems())
+
+	stored, err := client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+}
+
+func TestDisableKmeshManageRetriesBeforeDeletingAnnotation(t *testing.T) {
+	pod := podReadyWithAnnotation.DeepCopy()
+	namespace := nsWithoutLabel.DeepCopy()
+	client := fake.NewSimpleClientset(pod.DeepCopy(), namespace.DeepCopy())
+	controller, err := NewKmeshManageController(client, nil, 11, 12, constants.DualEngineMode)
+	require.NoError(t, err)
+	t.Cleanup(controller.queue.ShutDown)
+
+	require.NoError(t, controller.podInformer.GetStore().Add(pod))
+	require.NoError(t, controller.namespaceInformer.GetStore().Add(namespace))
+
+	controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+		return "test-ns", nil
+	}
+	controller.handleManage = func(string, bool) error {
+		return nil
+	}
+	var xdpAttempts atomic.Int32
+	controller.unlinkXDP = func(string, string) error {
+		if xdpAttempts.Add(1) <= 2 {
+			return errors.New("transient XDP failure")
+		}
+		return nil
+	}
+	controller.unlinkTC = func(string, int) error {
+		return nil
+	}
+
+	controller.disableKmeshManage(pod)
+	stored, err := client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+
+	assert.True(t, controller.processItems())
+	stored, err = client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+
+	assert.True(t, controller.processItems())
+	assert.Equal(t, int32(3), xdpAttempts.Load())
+
+	assert.True(t, controller.processItems())
+	stored, err = client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+}
+
+func TestSyncPodDropsStaleActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		pod     *corev1.Pod
+		action  string
+		wantErr string
+	}{
+		{
+			name:   "enable action after opt out",
+			pod:    podWithoutLabel,
+			action: ActionEnableManage,
+		},
+		{
+			name:   "enable action while pod is not ready",
+			pod:    podNotReadyWithLabel,
+			action: ActionEnableManage,
+		},
+		{
+			name:   "disable action after opt in",
+			pod:    podWithLabel,
+			action: ActionDisableManage,
+		},
+		{
+			name:   "add annotation after opt out",
+			pod:    podWithoutLabel,
+			action: ActionAddAnnotation,
+		},
+		{
+			name:   "delete annotation after opt in",
+			pod:    podWithLabel,
+			action: ActionDeleteAnnotation,
+		},
+		{
+			name:    "unsupported action",
+			pod:     podWithLabel,
+			action:  "unsupported",
+			wantErr: "unsupported action",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := tt.pod.DeepCopy()
+			namespace := nsWithoutLabel.DeepCopy()
+			client := fake.NewSimpleClientset(pod.DeepCopy(), namespace.DeepCopy())
+			controller, err := NewKmeshManageController(client, nil, 11, 12, constants.DualEngineMode)
+			require.NoError(t, err)
+			t.Cleanup(controller.queue.ShutDown)
+
+			require.NoError(t, controller.podInformer.GetStore().Add(pod))
+			require.NoError(t, controller.namespaceInformer.GetStore().Add(namespace))
+
+			err = controller.syncPod(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: tt.action})
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestHandleKmeshManage(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
@@ -210,16 +536,19 @@ func TestHandleKmeshManage(t *testing.T) {
 
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
-	patches.ApplyFunc(utils.HandleKmeshManage, func(ns string, op bool) error {
+	controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+		return "test-ns", nil
+	}
+	controller.handleManage = func(ns string, op bool) error {
 		if op {
 			enabled.Store(true)
 		} else {
 			disabled.Store(true)
 		}
 		return nil
-	})
+	}
 
-	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "Add", func(item interface{}) {
 		queueItem, ok := item.(QueueItem)
 		if !ok {
 			t.Logf("expected QueueItem but got %T", item)
@@ -452,16 +781,19 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
-	patches.ApplyFunc(utils.HandleKmeshManage, func(ns string, op bool) error {
+	controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+		return "test-ns", nil
+	}
+	controller.handleManage = func(ns string, op bool) error {
 		if op {
 			enabled.Store(true)
 		} else {
 			disabled.Store(true)
 		}
 		return nil
-	})
+	}
 
-	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "Add", func(item interface{}) {
 		queueItem, ok := item.(QueueItem)
 		if !ok {
 			t.Logf("expected QueueItem but got %T", item)

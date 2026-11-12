@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"syscall"
+	"time"
 
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -51,6 +52,9 @@ const (
 	MaxRetries             = 5
 	ActionAddAnnotation    = "add"
 	ActionDeleteAnnotation = "delete"
+	ActionEnableManage     = "enable"
+	ActionDisableManage    = "disable"
+	ReconcileRetryDelay    = 30 * time.Second
 )
 
 type QueueItem struct {
@@ -60,17 +64,24 @@ type QueueItem struct {
 }
 
 type KmeshManageController struct {
-	factory           informers.SharedInformerFactory
-	podInformer       cache.SharedIndexInformer
-	podLister         v1.PodLister
-	namespaceInformer cache.SharedIndexInformer
-	namespaceLister   v1.NamespaceLister
-	queue             workqueue.TypedRateLimitingInterface[any]
-	client            kubernetes.Interface
-	sm                *kmeshsecurity.SecretManager
-	xdpProgFd         int
-	tcProgFd          int
-	mode              string
+	factory             informers.SharedInformerFactory
+	podInformer         cache.SharedIndexInformer
+	podLister           v1.PodLister
+	namespaceInformer   cache.SharedIndexInformer
+	namespaceLister     v1.NamespaceLister
+	queue               workqueue.TypedRateLimitingInterface[any]
+	client              kubernetes.Interface
+	sm                  *kmeshsecurity.SecretManager
+	xdpProgFd           int
+	tcProgFd            int
+	mode                string
+	getPodNSPath        func(*corev1.Pod) (string, error)
+	handleManage        func(string, bool) error
+	linkXDP             func(string, int, string) error
+	unlinkXDP           func(string, string) error
+	linkTC              func(string, int) error
+	unlinkTC            func(string, int) error
+	reconcileRetryDelay time.Duration
 }
 
 func isPodReady(pod *corev1.Pod) bool {
@@ -93,17 +104,24 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 
 	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 	c := &KmeshManageController{
-		podInformer:       podInformer,
-		podLister:         podLister,
-		factory:           factory,
-		namespaceInformer: namespaceInformer,
-		namespaceLister:   namespaceLister,
-		queue:             queue,
-		client:            client,
-		sm:                sm,
-		xdpProgFd:         xdpProgFd,
-		tcProgFd:          tcProgFd,
-		mode:              mode,
+		podInformer:         podInformer,
+		podLister:           podLister,
+		factory:             factory,
+		namespaceInformer:   namespaceInformer,
+		namespaceLister:     namespaceLister,
+		queue:               queue,
+		client:              client,
+		sm:                  sm,
+		xdpProgFd:           xdpProgFd,
+		tcProgFd:            tcProgFd,
+		mode:                mode,
+		getPodNSPath:        ns.GetPodNSpath,
+		handleManage:        utils.HandleKmeshManage,
+		linkXDP:             linkXdp,
+		unlinkXDP:           unlinkXdp,
+		linkTC:              linkTc,
+		unlinkTC:            unlinkTc,
+		reconcileRetryDelay: ReconcileRetryDelay,
 	}
 
 	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -255,27 +273,52 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 		return
 	}
 	log.Debugf("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
-	nspath, _ := ns.GetPodNSpath(pod)
-	if err := utils.HandleKmeshManage(nspath, true); err != nil {
-		log.Errorf("failed to enable Kmesh manage")
+	if err := c.reconcileKmeshManage(pod, true); err != nil {
+		log.Errorf("failed to enable Kmesh manage for pod %s/%s: %v, will retry", pod.Namespace, pod.Name, err)
+		c.queue.Add(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionEnableManage})
 		return
 	}
-	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
-	_ = linkXdp(nspath, c.xdpProgFd, c.mode)
-	_ = linkTc(nspath, c.tcProgFd)
+	c.queue.Add(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
 }
 
 func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 	sendCertRequest(c.sm, pod, kmeshsecurity.DELETE)
 	log.Infof("%s/%s: disable Kmesh manage", pod.GetNamespace(), pod.GetName())
-	nspath, _ := ns.GetPodNSpath(pod)
-	if err := utils.HandleKmeshManage(nspath, false); err != nil {
-		log.Error("failed to disable Kmesh manage")
+	if err := c.reconcileKmeshManage(pod, false); err != nil {
+		log.Errorf("failed to disable Kmesh manage for pod %s/%s: %v, will retry", pod.Namespace, pod.Name, err)
+		c.queue.Add(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDisableManage})
 		return
 	}
-	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
-	_ = unlinkXdp(nspath, c.mode)
-	_ = unlinkTc(nspath, c.tcProgFd)
+	c.queue.Add(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+}
+
+func (c *KmeshManageController) reconcileKmeshManage(pod *corev1.Pod, enable bool) error {
+	nspath, err := c.getPodNSPath(pod)
+	if err != nil {
+		return fmt.Errorf("get network namespace: %w", err)
+	}
+
+	if err := c.handleManage(nspath, enable); err != nil {
+		return fmt.Errorf("update Kmesh control state: %w", err)
+	}
+
+	if enable {
+		if err := c.linkXDP(nspath, c.xdpProgFd, c.mode); err != nil {
+			return fmt.Errorf("attach XDP program: %w", err)
+		}
+		if err := c.linkTC(nspath, c.tcProgFd); err != nil {
+			return fmt.Errorf("attach TC program: %w", err)
+		}
+		return nil
+	}
+
+	if err := c.unlinkXDP(nspath, c.mode); err != nil {
+		return fmt.Errorf("detach XDP program: %w", err)
+	}
+	if err := c.unlinkTC(nspath, c.tcProgFd); err != nil {
+		return fmt.Errorf("detach TC program: %w", err)
+	}
+	return nil
 }
 
 func (c *KmeshManageController) enableKmeshForPodsInNamespace(namespace *corev1.Namespace) {
@@ -341,8 +384,9 @@ func (c *KmeshManageController) processItems() bool {
 			log.Errorf("failed to handle pod %s/%s action %s, err: %v, will retry", queueItem.podNs, queueItem.podName, queueItem.action, err)
 			c.queue.AddRateLimited(key)
 		} else {
-			log.Errorf("failed to handle pod %s/%s action %s after %d retries, err: %v, giving up", queueItem.podNs, queueItem.podName, queueItem.action, MaxRetries, err)
+			log.Errorf("failed to handle pod %s/%s action %s after %d fast retries, err: %v, retrying in %v", queueItem.podNs, queueItem.podName, queueItem.action, MaxRetries, err, c.reconcileRetryDelay)
 			c.queue.Forget(key)
+			c.queue.AddAfter(key, c.reconcileRetryDelay)
 		}
 		return true
 	}
@@ -367,12 +411,37 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 		return fmt.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
 	}
 
-	if key.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
+	switch key.action {
+	case ActionEnableManage:
+		if !utils.ShouldEnroll(pod, namespace) || !isPodReady(pod) {
+			return nil
+		}
+		if err := c.reconcileKmeshManage(pod, true); err != nil {
+			return err
+		}
+		c.queue.Add(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
+	case ActionDisableManage:
+		if utils.ShouldEnroll(pod, namespace) {
+			return nil
+		}
+		if err := c.reconcileKmeshManage(pod, false); err != nil {
+			return err
+		}
+		c.queue.Add(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+	case ActionAddAnnotation:
+		if !utils.ShouldEnroll(pod, namespace) {
+			return nil
+		}
 		log.Infof("add annotation for pod %s/%s", pod.Namespace, pod.Name)
 		return utils.PatchKmeshRedirectAnnotation(c.client, pod)
-	} else if key.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
+	case ActionDeleteAnnotation:
+		if utils.ShouldEnroll(pod, namespace) {
+			return nil
+		}
 		log.Infof("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
 		return utils.DelKmeshRedirectAnnotation(c.client, pod)
+	default:
+		return fmt.Errorf("unsupported action %q", key.action)
 	}
 	return nil
 }
