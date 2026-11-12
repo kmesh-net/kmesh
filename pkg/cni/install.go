@@ -121,6 +121,54 @@ func (i *Installer) WatchServiceAccountToken() error {
 	return nil
 }
 
+// WatchCNIConfigFile watches the CNI config file for external modifications
+// and re-applies Kmesh CNI configuration when changes are detected.
+// This ensures Kmesh CNI plugin remains installed even if other CNI plugins
+// modify the config file.
+func (i *Installer) WatchCNIConfigFile() error {
+	cniConfigPath, err := i.getCniConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to get CNI config path: %v", err)
+	}
+
+	if err := i.Watcher.Add(cniConfigPath); err != nil {
+		return fmt.Errorf("failed to add %s to file watcher: %v", cniConfigPath, err)
+	}
+
+	// Start listening for events.
+	go func() {
+		log.Infof("start watching CNI config file %s", cniConfigPath)
+
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+				log.Infof("CNI config file changed, re-applying Kmesh CNI configuration")
+				if err := i.chainedKmeshCniPlugin(i.Mode, i.CniMountNetEtcDIR); err != nil {
+					log.Errorf("failed to re-apply Kmesh CNI config: %v", err)
+				}
+
+			case event := <-i.Watcher.Events(cniConfigPath):
+				log.Debugf("got CNI config event %s", event.String())
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond)
+					}
+				}
+
+			case err := <-i.Watcher.Errors(cniConfigPath):
+				if err != nil {
+					log.Errorf("error from CNI config file watcher: %v", err)
+					return
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
 func (i *Installer) Start() error {
 	if i.Mode == constants.KernelNativeMode || i.Mode == constants.DualEngineMode {
 		log.Info("start write CNI config")
@@ -131,6 +179,10 @@ func (i *Installer) Start() error {
 		}
 
 		if err := i.WatchServiceAccountToken(); err != nil {
+			return err
+		}
+
+		if err := i.WatchCNIConfigFile(); err != nil {
 			return err
 		}
 	}
