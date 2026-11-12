@@ -269,3 +269,8 @@ func DeleteSecret() error {
 	}
 	return nil
 }
+
+func setKubeClient(client kube.CLIClient) {
+	clientset = client
+	clientInit = nil
+}
