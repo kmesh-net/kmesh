@@ -116,10 +116,7 @@ func TestDNS(t *testing.T) {
 			Domain:      testcase.domain,
 			RefreshRate: testcase.refreshRate,
 		}
-		testDNSResolver.Lock()
-		testDNSResolver.cache[testcase.domain] = &DomainCacheEntry{}
-		testDNSResolver.Unlock()
-		testDNSResolver.refreshQueue.AddAfter(input, 0)
+		testDNSResolver.AddDomainInQueue(input, 0)
 
 		time.Sleep(2 * time.Second)
 
@@ -141,4 +138,68 @@ func TestDNS(t *testing.T) {
 		wg.Done()
 	}
 	wg.Wait()
+}
+
+// Repeated AddDomainInQueue calls for one hostname must collapse into a single
+// queue entry instead of starting one refresh loop per call.
+func TestAddDomainInQueueDedupesQueuedDomain(t *testing.T) {
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.refreshQueue.ShutDown()
+
+	for _, rate := range []time.Duration{15 * time.Second, 5 * time.Second, 60 * time.Second} {
+		r.AddDomainInQueue(&DomainInfo{Domain: "www.kmesh.test.", RefreshRate: rate}, 0)
+	}
+
+	if got := r.refreshQueue.Len(); got != 1 {
+		t.Fatalf("expected one queued refresh for the domain, got %d", got)
+	}
+	r.RLock()
+	rate := r.cache["www.kmesh.test."].RefreshRate
+	r.RUnlock()
+	if rate != 5*time.Second {
+		t.Fatalf("expected the strictest refresh rate (5s) to be kept, got %v", rate)
+	}
+}
+
+func TestAddDomainInQueueSingleRefreshLoop(t *testing.T) {
+	fakeDNSServer := NewFakeDNSServer()
+	const domain = "www.kmesh.test."
+	fakeDNSServer.SetHosts(domain, 1)
+	fakeDNSServer.SetTTL(1)
+
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.delegates = []Resolver{NewUpstreamResolver(fakeDNSServer.Server.PacketConn.LocalAddr().String())}
+
+	// Enqueue before the worker starts so the four calls collapse into one
+	// queue entry deterministically; a worker racing the calls could re-resolve
+	// once more and make the count depend on scheduling.
+	for i := 0; i < 4; i++ {
+		r.AddDomainInQueue(&DomainInfo{Domain: domain, RefreshRate: 15 * time.Second}, 0)
+	}
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	go r.StartDnsResolver(stopCh)
+
+	// With a 1s TTL a single loop notifies at t=0,1,2,3s within 3.5s; one loop
+	// per enqueue would notify about four times as often.
+	notifications := 0
+	deadline := time.After(3500 * time.Millisecond)
+	for {
+		select {
+		case <-r.DnsChan:
+			notifications++
+			continue
+		case <-deadline:
+		}
+		break
+	}
+	if notifications < 3 || notifications > 4 {
+		t.Fatalf("expected a single refresh loop (3..4 notifications in 3.5s), got %d", notifications)
+	}
 }
