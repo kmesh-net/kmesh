@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -39,11 +40,7 @@ func ExecuteWithRedirect(cmd string, args []string, stdout io.Writer) error {
 	}
 	stderr := &bytes.Buffer{}
 	err = executeCore(cmd, args, stdout, stderr)
-	if len(stderr.String()) != 0 {
-		err = fmt.Errorf("command error output: %s", stderr.String())
-		return err
-	}
-	return err
+	return commandResult(err, stderr)
 }
 
 func Execute(cmd string, args []string) error {
@@ -56,11 +53,24 @@ func Execute(cmd string, args []string) error {
 		log.Debugf("command output: %s", stdout.String())
 	}
 
-	if len(stderr.String()) != 0 {
-		err = fmt.Errorf("command error output: %s", stderr.String())
+	return commandResult(err, stderr)
+}
+
+// commandResult decides success by the exit status, not by stderr: tools such
+// as iptables print warnings on stderr and still exit 0. On failure the stderr
+// text is appended to the exit error so the caller sees both.
+func commandResult(err error, stderr *bytes.Buffer) error {
+	errOutput := strings.TrimSpace(stderr.String())
+	if err != nil {
+		if errOutput != "" {
+			return fmt.Errorf("%w: %s", err, errOutput)
+		}
 		return err
 	}
-	return err
+	if errOutput != "" {
+		log.Warnf("command error output: %s", errOutput)
+	}
+	return nil
 }
 
 func executeCore(cmd string, args []string, stdout, stderr io.Writer) error {
