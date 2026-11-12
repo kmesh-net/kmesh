@@ -61,6 +61,34 @@ func TestBuildNameTable(t *testing.T) {
 			},
 		},
 		{
+			name: "Service with unspecified address followed by valid address",
+			services: []*workloadapi.Service{
+				{
+					Name:      "svc1",
+					Namespace: "ns1",
+					Hostname:  "svc1.ns1.svc.cluster.local",
+					Addresses: []*workloadapi.NetworkAddress{
+						{
+							Address: []byte{0, 0, 0, 0},
+						},
+						{
+							Address: []byte{10, 0, 0, 1},
+						},
+					},
+				},
+			},
+			want: &dnsproto.NameTable{
+				Table: map[string]*dnsproto.NameTable_NameInfo{
+					"svc1.ns1.svc.cluster.local": {
+						Ips:       []string{"10.0.0.1"},
+						Registry:  "Kubernetes",
+						Namespace: "ns1",
+						Shortname: "svc1",
+					},
+				},
+			},
+		},
+		{
 			name: "Headless service test",
 			services: []*workloadapi.Service{
 				{
