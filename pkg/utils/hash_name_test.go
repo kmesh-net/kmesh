@@ -117,6 +117,10 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 	hashName.Reset()
 }
 
+// concurrentTestIterations provides enough writer/reader churn to reliably
+// trip the runtime's concurrent map access check on unsynchronized code.
+const concurrentTestIterations = 20000
+
 // Regression test: the workload processor writes HashName while the
 // status server reads it. On an unsynchronized HashName this aborts the
 // process with "fatal error: concurrent map read and map write".
@@ -129,19 +133,19 @@ func TestHashNameConcurrentAccess(t *testing.T) {
 	wg.Add(3)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 2000; i++ {
+		for i := 0; i < concurrentTestIterations; i++ {
 			hashName.Hash(fmt.Sprintf("svc-%d", i%50))
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 2000; i++ {
+		for i := 0; i < concurrentTestIterations; i++ {
 			hashName.Delete(fmt.Sprintf("svc-%d", i%50))
 		}
 	}()
 	go func() {
 		defer wg.Done()
-		for i := 0; i < 2000; i++ {
+		for i := 0; i < concurrentTestIterations; i++ {
 			_ = hashName.NumToStr(uint32(i % 50))
 			_ = hashName.StrToNum("svc-1")
 			_ = hashName.GetStrToNum()
