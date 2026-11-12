@@ -1,0 +1,130 @@
+From 03cea45be513a52a0c57c022594d6a5e98450642 Mon Sep 17 00:00:00 2001
+From: zhangmingyi <zhangmingyi@huawei.com>
+Date: Thu, 9 Jan 2025 07:27:31 +0000
+Subject: [PATCH 1/2] add helper strnstr strncmp parse_header_msg
+
+User messages need to be parsed when the bpf link establishment
+is delayed. add three helper func to parse and operate str.
+
+Signed-off-by: zhangmingyi <zhangmingyi@huawei.com>
+---
+ include/uapi/linux/bpf.h       |  3 ++
+ net/core/filter.c              | 67 ++++++++++++++++++++++++++++++++++
+ tools/include/uapi/linux/bpf.h |  3 ++
+ 3 files changed, 73 insertions(+)
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index fcda8b986..bd2235fc4 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -4051,6 +4051,9 @@ union bpf_attr {
+ 	FN(cpumask_op),			\
+ 	FN(cpus_share_cache),		\
+ 	FN(is_local_ipaddr),		\
++	FN(km_header_strnstr),		\
++	FN(km_header_strncmp),		\
++	FN(parse_header_msg),		\
+ 	/* */
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 431e778bb..4a5d944c9 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -6986,6 +6986,67 @@ const struct bpf_func_proto bpf_sock_ops_get_sk_rx_dst_proto = {
+ };
+ 
+ #endif /* CONFIG_INET */
++typedef int (*bpf_parse_protocol_func)(struct bpf_sock_addr_kern* ctx);
++bpf_parse_protocol_func parse_protocol_func = NULL;
++EXPORT_SYMBOL(parse_protocol_func);
++
++typedef int (*bpf_km_header_strnstr_func)(struct bpf_sock_addr_kern *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz);
++bpf_km_header_strnstr_func km_header_strnstr_func = NULL;
++EXPORT_SYMBOL(km_header_strnstr_func);
++
++typedef int (*bpf_km_header_strncmp_func)(const char *key, int key_sz, const char *target, int target_sz, int opt);
++bpf_km_header_strncmp_func km_header_strncmp_func = NULL;
++EXPORT_SYMBOL(km_header_strncmp_func);
++
++BPF_CALL_1(bpf_parse_header_msg, struct bpf_sock_addr_kern *, ctx)
++{
++	if (!parse_protocol_func)
++		return -ENOTSUPP;
++	return parse_protocol_func(ctx);
++}
++
++static const struct bpf_func_proto bpf_parse_header_msg_proto = {
++	.func		= bpf_parse_header_msg,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++};
++
++BPF_CALL_5(bpf_km_header_strnstr, struct bpf_sock_addr_kern *, ctx, const char *, key, int , key_sz, const char *, subptr, int, subptr_sz)
++{
++	if (!km_header_strnstr_func)
++		return -ENOTSUPP;
++	return km_header_strnstr_func(ctx, key, key_sz, subptr, subptr_sz);
++}
++
++static const struct bpf_func_proto bpf_km_header_strnstr_proto = {
++	.func		= bpf_km_header_strnstr,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_PTR_TO_MEM | MEM_RDONLY,
++	.arg3_type	= ARG_CONST_SIZE,
++	.arg4_type	= ARG_PTR_TO_MEM | MEM_RDONLY,
++	.arg5_type	= ARG_CONST_SIZE,
++};
++
++BPF_CALL_5(bpf_km_header_strncmp, const char *, key, int , key_sz, const char *, target, int, target_sz, int, opt)
++{
++	if (!km_header_strncmp_func)
++		return -ENOTSUPP;
++	return km_header_strncmp_func(key, key_sz, target, target_sz, opt);
++}
++
++static const struct bpf_func_proto bpf_km_header_strncmp_proto = {
++	.func		= bpf_km_header_strncmp,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_MEM | MEM_RDONLY,
++	.arg2_type	= ARG_CONST_SIZE,
++	.arg3_type	= ARG_PTR_TO_MEM | MEM_RDONLY,
++	.arg4_type	= ARG_CONST_SIZE,
++	.arg5_type	= ARG_ANYTHING,
++};
+ 
+ bool bpf_helper_changes_pkt_data(void *func)
+ {
+@@ -7139,6 +7200,12 @@ sock_addr_func_proto(enum bpf_func_id func_id, const struct bpf_prog *prog)
+ 		default:
+ 			return NULL;
+ 		}
++	case BPF_FUNC_parse_header_msg:
++		return &bpf_parse_header_msg_proto;
++	case BPF_FUNC_km_header_strnstr:
++		return &bpf_km_header_strnstr_proto;
++	case BPF_FUNC_km_header_strncmp:
++		return &bpf_km_header_strncmp_proto;
+ 	default:
+ 		return bpf_sk_base_func_proto(func_id);
+ 	}
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 588750c46..63069c2a8 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -4051,6 +4051,9 @@ union bpf_attr {
+ 	FN(cpumask_op),			\
+ 	FN(cpus_share_cache),		\
+ 	FN(is_local_ipaddr),            \
++	FN(km_header_strnstr),		\
++	FN(km_header_strncmp),		\
++	FN(parse_header_msg),		\
+ 	/* */
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+-- 
+2.33.0
