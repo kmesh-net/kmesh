@@ -81,6 +81,8 @@ func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
 	return false
 }
 
+var withNetNSPath = netns.WithNetNSPath
+
 func HandleKmeshManage(ns string, enroll bool) error {
 	execFunc := func(netns.NetNS) error {
 		port := constants.OperEnableControl
@@ -90,7 +92,7 @@ func HandleKmeshManage(ns string, enroll bool) error {
 		return nets.TriggerControlCommand(port)
 	}
 
-	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
+	if err := withNetNSPath(ns, execFunc); err != nil {
 		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
 		return err
 	}

@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-const (
+var (
 	persistPath = "/mnt/hash_name.yaml"
 )
 
