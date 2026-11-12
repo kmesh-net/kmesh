@@ -37,6 +37,10 @@ func getBootTime() (time.Time, error) {
 	if err != nil {
 		return time.Time{}, err
 	}
+	defer func() {
+		_ = data.Close()
+	}()
+
 	scanner := bufio.NewScanner(data)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -102,7 +106,9 @@ func KmeshModuleLog(stopCh <-chan struct{}) {
 			log.Errorf("open /dev/kmsg failed: %v, Failed to read ko log", err)
 			return
 		}
-		defer file.Close()
+		defer func() {
+			_ = file.Close()
+		}()
 
 		scanner := bufio.NewScanner(file)
 		for {
