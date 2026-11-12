@@ -358,14 +358,15 @@ func TestClearClusterStats(t *testing.T) {
 	adsObj := loader.GetBpfKmesh()
 	assert.NotNil(t, adsObj)
 	hashName := utils.NewHashName()
+	defer hashName.Reset()
 	clusterCache := NewClusterCache(adsObj, hashName)
 	testClusters := []string{"test_cluster1", "test_cluster2", "test_cluster3"}
 	testKeys := []ClusterStatsKey{
-		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[0])},
-		{NetnsCookie: 1, ClusterId: hashName.StrToNum(testClusters[0])},
-		{NetnsCookie: 2, ClusterId: hashName.StrToNum(testClusters[0])},
-		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[1])},
-		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[2])},
+		{NetnsCookie: 0, ClusterId: hashName.Hash(testClusters[0])},
+		{NetnsCookie: 1, ClusterId: hashName.Hash(testClusters[0])},
+		{NetnsCookie: 2, ClusterId: hashName.Hash(testClusters[0])},
+		{NetnsCookie: 0, ClusterId: hashName.Hash(testClusters[1])},
+		{NetnsCookie: 0, ClusterId: hashName.Hash(testClusters[2])},
 	}
 
 	testValues := []ClusterStatsValue{
@@ -377,17 +378,87 @@ func TestClearClusterStats(t *testing.T) {
 	}
 
 	clusterStatsMap := adsObj.GetClusterStatsMap()
-	clusterStatsMap.BatchUpdate(testKeys, testValues, nil)
+	_, err := clusterStatsMap.BatchUpdate(testKeys, testValues, nil)
+	assert.Nil(t, err)
+
+	expected := make(map[ClusterStatsKey]ClusterStatsValue, len(testKeys))
+	for i, testKey := range testKeys {
+		expected[testKey] = testValues[i]
+	}
 
 	var key ClusterStatsKey
 	var value ClusterStatsValue
 	for _, cluster := range testClusters {
-		clusterCache.clearClusterStats(cluster)
-		iter := clusterStatsMap.Iterate()
 		clusterId := hashName.StrToNum(cluster)
+		clusterCache.clearClusterStats(cluster)
+
+		for expectedKey := range expected {
+			if expectedKey.ClusterId == clusterId {
+				delete(expected, expectedKey)
+			}
+		}
+
+		remaining := make(map[ClusterStatsKey]ClusterStatsValue, len(expected))
+		iter := clusterStatsMap.Iterate()
 		for iter.Next(&key, &value) {
-			assert.NotEqual(t, clusterId, key.ClusterId)
+			remaining[key] = value
 		}
 		assert.Nil(t, iter.Err())
+		assert.Equal(t, expected, remaining)
 	}
+}
+
+func TestClusterFlushAssignsIds(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(maps_v2.ClusterUpdate, func(key string, value *cluster_v2.Cluster) error {
+		return nil
+	})
+	defer patches.Reset()
+
+	// Circuit breaker stats are held in a map keyed by {netns_cookie,
+	// cluster_id}, so two clusters only keep independent connection counters
+	// and limits while their ids differ.
+	newCluster := func(name string, maxConnections uint32) *cluster_v2.Cluster {
+		return &cluster_v2.Cluster{
+			ApiStatus:       core_v2.ApiStatus_UPDATE,
+			Name:            name,
+			LbPolicy:        cluster_v2.Cluster_RANDOM,
+			CircuitBreakers: &cluster_v2.CircuitBreakers{MaxConnections: maxConnections},
+		}
+	}
+
+	t.Run("clusters get distinct non-zero ids", func(t *testing.T) {
+		hashName := utils.NewHashName()
+		defer hashName.Reset()
+		cache := NewClusterCache(nil, hashName)
+		reviews := newCluster("outbound|9080||reviews.default.svc.cluster.local", 10)
+		ratings := newCluster("outbound|9080||ratings.default.svc.cluster.local", 100)
+		cache.SetApiCluster(reviews.Name, reviews)
+		cache.SetApiCluster(ratings.Name, ratings)
+
+		cache.Flush()
+
+		assert.NotZero(t, reviews.Id)
+		assert.NotZero(t, ratings.Id)
+		assert.NotEqual(t, reviews.Id, ratings.Id)
+	})
+
+	t.Run("id is stable across flushes", func(t *testing.T) {
+		hashName := utils.NewHashName()
+		defer hashName.Reset()
+		cache := NewClusterCache(nil, hashName)
+		cluster := newCluster("outbound|9080||reviews.default.svc.cluster.local", 10)
+		cache.SetApiCluster(cluster.Name, cluster)
+
+		cache.Flush()
+		firstId := cluster.Id
+		assert.NotZero(t, firstId)
+
+		// A later config push re-flushes the same cluster; its stats entries
+		// are keyed by the id, so reallocating one would strand them.
+		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
+		cache.Flush()
+
+		assert.Equal(t, firstId, cluster.Id)
+	})
 }
