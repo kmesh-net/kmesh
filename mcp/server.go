@@ -113,6 +113,45 @@ func RegisterToolsAndServe(ctx context.Context, cliClient kube.CLIClient, transp
 	)
 	mcpServer.AddTool(toolMeshNamespaces, handler.HandleGetMeshNamespaces)
 
+	toolIpsecStatus := mcp.NewTool("get_ipsec_status",
+		mcp.WithDescription("Reports whether IPsec traffic encryption is configured (reads the kmesh-ipsec secret; key material is never exposed)."),
+		mcp.WithString("namespace", mcp.Description("Namespace of the Kmesh installation (default: kmesh-system)")),
+	)
+	mcpServer.AddTool(toolIpsecStatus, handler.HandleGetIpsecStatus)
+
+	toolMeshServices := mcp.NewTool("list_mesh_services",
+		mcp.WithDescription("Lists Kubernetes services in mesh-enrolled namespaces with cluster IPs, ports and selectors. Use get_mesh_namespaces to see enrolled namespaces."),
+		mcp.WithString("namespace", mcp.Description("List services in this namespace only (default: all mesh namespaces)")),
+	)
+	mcpServer.AddTool(toolMeshServices, handler.HandleListMeshServices)
+
+	toolBpfWorkload := mcp.NewTool("get_bpf_workload_details",
+		mcp.WithDescription("Deep-dive into dual-engine (workload) eBPF map state: frontends, backends, endpoints and services. Returns a compact summary by default; use filter to fetch full entries."),
+		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
+		mcp.WithBoolean("summary", mcp.Description("Return counts and compact identities instead of the full dump (default: true)")),
+		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against entry field values; matching entries are returned in full")),
+	)
+	mcpServer.AddTool(toolBpfWorkload, handler.HandleBpfWorkloadDetails)
+
+	toolBpfAds := mcp.NewTool("get_bpf_ads_details",
+		mcp.WithDescription("Deep-dive into kernel-native (ADS) eBPF map state: clusters, listeners and routes. Returns a compact summary by default; use filter to fetch full entries."),
+		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
+		mcp.WithBoolean("summary", mcp.Description("Return counts and compact identities instead of the full dump (default: true)")),
+		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against entry field values; matching entries are returned in full")),
+	)
+	mcpServer.AddTool(toolBpfAds, handler.HandleBpfAdsDetails)
+
+	toolDiagnose := mcp.NewTool("diagnose_connectivity",
+		mcp.WithDescription("Diagnoses why traffic from source to target may fail (e.g. 'why can sleep not reach productpage'). Resolves workloads/services and checks BPF wiring, waypoints and authorization policies. Returns a verdict with next-step hints."),
+		mcp.WithString("source", mcp.Required(), mcp.Description("Source pod name, workload name, or IP")),
+		mcp.WithString("target", mcp.Required(), mcp.Description("Target service name, hostname, VIP, or workload name/IP")),
+		mcp.WithString("namespace", mcp.Description("Default namespace for unqualified names")),
+		mcp.WithString("podName", mcp.Description("Daemon pod to query (auto-discovered if empty)")),
+	)
+	mcpServer.AddTool(toolDiagnose, handler.HandleDiagnoseConnectivity)
+
 	switch transport {
 	case "sse":
 		sseServer := server.NewSSEServer(mcpServer)
