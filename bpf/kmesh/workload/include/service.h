@@ -20,7 +20,7 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
     int rand_k = 0;
 
     if (service_v->prio_endpoint_count[0] == 0)
-        return 0;
+        return -ENOENT;
 
     endpoint_k.service_id = service_id;
     endpoint_k.prio = 0; // for random handle，all endpoints are saved with highest priority
