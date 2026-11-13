@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -406,6 +407,47 @@ func TestHandleGetLoggerLevels(t *testing.T) {
 		res, err := h.HandleGetLoggerLevels(ctx, req)
 		require.NoError(t, err)
 		assert.False(t, res.IsError)
+	})
+
+	t.Run("resolves every module level", func(t *testing.T) {
+		levels := map[string]string{"default": "info", "bpf": "debug"}
+		h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
+			if endpoint == "debug/loggers" {
+				return []byte(`["default","bpf"]`), nil
+			}
+			name := strings.TrimPrefix(endpoint, "debug/loggers?name=")
+			level, ok := levels[name]
+			if !ok {
+				return nil, fmt.Errorf("unknown logger %s", name)
+			}
+			return []byte(fmt.Sprintf(`{"name":%q,"level":%q}`, name, level)), nil
+		})
+		res, err := h.HandleGetLoggerLevels(ctx, makeCallRequest(map[string]any{}))
+		require.NoError(t, err)
+		assert.False(t, res.IsError)
+		text := res.Content[0].(mcp.TextContent).Text
+		assert.Contains(t, text, `"count": 2`)
+		assert.Contains(t, text, `"level": "info"`)
+		assert.Contains(t, text, `"level": "debug"`)
+	})
+
+	t.Run("per-module failure is reported inline", func(t *testing.T) {
+		h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
+			switch endpoint {
+			case "debug/loggers":
+				return []byte(`["good","bad"]`), nil
+			case "debug/loggers?name=good":
+				return []byte(`{"name":"good","level":"info"}`), nil
+			default:
+				return nil, fmt.Errorf("boom")
+			}
+		})
+		res, err := h.HandleGetLoggerLevels(ctx, makeCallRequest(map[string]any{}))
+		require.NoError(t, err)
+		assert.False(t, res.IsError)
+		text := res.Content[0].(mcp.TextContent).Text
+		assert.Contains(t, text, `"level": "info"`)
+		assert.Contains(t, text, "boom")
 	})
 }
 
