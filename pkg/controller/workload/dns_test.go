@@ -271,10 +271,6 @@ func TestDnsController_ProcessDomains(t *testing.T) {
 		func(_ *dns.DNSResolver, domain string) []string {
 			return nil // Mock initial cache miss scenario
 		})
-	patches.ApplyMethod(reflect.TypeOf(dnsController.dnsResolver), "RemoveUnwatchDomain",
-		func(_ *dns.DNSResolver, domains map[string]any) {
-			// Mock domain unwatch removal
-		})
 	patches.ApplyMethod(reflect.TypeOf(dnsController.dnsResolver), "AddDomainInQueue",
 		func(_ *dns.DNSResolver, domainInfo *dns.DomainInfo, delay time.Duration) {
 			// Mock adding domain to queue
@@ -293,6 +289,41 @@ func TestDnsController_ProcessDomains(t *testing.T) {
 	assert.Equal(t, 1, len(pendingDomain.Workload))
 	assert.Equal(t, workload, pendingDomain.Workload[0])
 	assert.Equal(t, WorkloadDnsRefreshRate, pendingDomain.RefreshRate)
+}
+
+func TestWorkloadDnsCacheKeepsOtherDomains(t *testing.T) {
+	dnsController, err := NewDnsController(nil)
+	assert.NoError(t, err)
+
+	first := &workloadapi.Workload{Uid: "u1", Name: "wl1", Hostname: "first.example"}
+	second := &workloadapi.Workload{Uid: "u2", Name: "wl2", Hostname: "second.example"}
+	dnsController.processDomains(first)
+	dnsController.processDomains(second)
+
+	assert.ElementsMatch(t, []string{"first.example", "second.example"}, dnsController.dnsResolver.GetAllCachedDomains())
+
+	dnsController.removeWorkloadFromDnsCache("wl1")
+	assert.ElementsMatch(t, []string{"second.example"}, dnsController.dnsResolver.GetAllCachedDomains())
+	assert.NotContains(t, dnsController.pendingHostnames, "wl1")
+	assert.Equal(t, "second.example", dnsController.pendingHostnames["wl2"])
+
+	shared1 := &workloadapi.Workload{Uid: "s1", Name: "shared-1", Hostname: "shared.example"}
+	shared2 := &workloadapi.Workload{Uid: "s2", Name: "shared-2", Hostname: "shared.example"}
+	dnsController.processDomains(shared1)
+	dnsController.processDomains(shared2)
+	dnsController.removeWorkloadFromDnsCache("shared-1")
+	assert.ElementsMatch(t, []string{"second.example", "shared.example"}, dnsController.dnsResolver.GetAllCachedDomains())
+	assert.Contains(t, dnsController.workloadCache, "shared.example")
+	assert.Equal(t, 1, len(dnsController.workloadCache["shared.example"].Workload))
+
+	dnsController.removeWorkloadFromDnsCache("shared-2")
+	assert.ElementsMatch(t, []string{"second.example"}, dnsController.dnsResolver.GetAllCachedDomains())
+
+	renamed := &workloadapi.Workload{Uid: "u2", Name: "wl2", Hostname: "renamed.example"}
+	dnsController.processDomains(renamed)
+	assert.ElementsMatch(t, []string{"renamed.example"}, dnsController.dnsResolver.GetAllCachedDomains())
+	assert.Equal(t, "renamed.example", dnsController.pendingHostnames["wl2"])
+	assert.NotContains(t, dnsController.workloadCache, "second.example")
 }
 
 func TestCloneWorkload(t *testing.T) {

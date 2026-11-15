@@ -142,3 +142,51 @@ func TestDNS(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestRemoveDomainLeavesOtherEntries(t *testing.T) {
+	r := &DNSResolver{
+		cache: map[string]*DomainCacheEntry{
+			"a.example": {Addresses: []string{"10.0.0.1"}},
+			"b.example": {Addresses: []string{"10.0.0.2"}},
+		},
+	}
+
+	r.RemoveDomain("a.example")
+
+	if _, ok := r.cache["a.example"]; ok {
+		t.Fatal("a.example still cached")
+	}
+	addrs, ok := r.GetDomainAddress("b.example")
+	if !ok || len(addrs) != 1 || addrs[0] != "10.0.0.2" {
+		t.Fatalf("b.example = %v ok=%v", addrs, ok)
+	}
+}
+
+func TestRemoveUnwatchDomainKeepsPassedSet(t *testing.T) {
+	r := &DNSResolver{
+		cache: map[string]*DomainCacheEntry{
+			"a.example": {},
+			"b.example": {},
+			"c.example": {},
+		},
+	}
+
+	r.RemoveUnwatchDomain(map[string]interface{}{
+		"a.example": nil,
+		"c.example": nil,
+	})
+
+	got := map[string]struct{}{}
+	for _, domain := range r.GetAllCachedDomains() {
+		got[domain] = struct{}{}
+	}
+	if _, ok := got["b.example"]; ok {
+		t.Fatal("b.example should have been removed")
+	}
+	if _, ok := got["a.example"]; !ok {
+		t.Fatal("a.example should have been kept")
+	}
+	if _, ok := got["c.example"]; !ok {
+		t.Fatal("c.example should have been kept")
+	}
+}
