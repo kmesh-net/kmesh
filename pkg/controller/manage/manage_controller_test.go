@@ -593,6 +593,128 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	}
 }
 
+// TestNamespaceEnrollThenImmediateUnenroll_DatapathCleanup reproduces the
+// namespace unenroll race end-to-end through the namespace event handlers:
+// enrolling a namespace links a pod's XDP/TC datapath synchronously but only
+// queues the KmeshRedirectionAnnotation patch (enableKmeshManage calls
+// c.queue.AddRateLimited(... ActionAddAnnotation) rather than applying it
+// inline), so the pod's cached annotation is still unset if the namespace is
+// unenrolled again immediately afterward, before that queued patch has any
+// chance to land. Nothing else will retry the disable later: handlePodUpdate
+// ignores pod updates that only change this same annotation, to avoid a
+// self-triggered update loop (https://github.com/kmesh-net/kmesh/issues/1357).
+// This test enrolls the namespace, immediately unenrolls it with no sleeps or
+// retries, and asserts the pod's datapath (Kmesh manage toggle, XDP, and TC)
+// is still torn down.
+func TestNamespaceEnrollThenImmediateUnenroll_DatapathCleanup(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+
+	var enabled, disabled atomic.Bool
+	var xdpUnlinked, tcUnlinked atomic.Bool
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.HandleKmeshManage, func(_ string, op bool) error {
+		if op {
+			enabled.Store(true)
+		} else {
+			disabled.Store(true)
+		}
+		return nil
+	})
+	patches.ApplyFunc(unlinkXdp, func(_ string, _ string) error {
+		xdpUnlinked.Store(true)
+		return nil
+	})
+	patches.ApplyFunc(unlinkTc, func(_ string, _ int) error {
+		tcUnlinked.Store(true)
+		return nil
+	})
+
+	// Seed the pod informer cache directly (fake informer store) instead of
+	// going through the fake clientset and waiting for the informer to sync,
+	// so the test is deterministic and needs no sleeps or retries.
+	pod := podWithoutLabel.DeepCopy()
+	pod.Name = "race-pod"
+	require.NoError(t, controller.podInformer.GetStore().Add(pod))
+
+	// Enroll the namespace: the pod matches ShouldEnroll via the namespace
+	// label, so enableKmeshManage runs and queues, but does not apply, the
+	// annotation patch (Run/processItems is never started in this test).
+	controller.handleNamespaceAdd(nsWithLabel)
+	require.True(t, enabled.Load(), "sanity check: enrolling the namespace must enable Kmesh manage for the pod")
+
+	cachedPod, err := controller.podLister.Pods(pod.Namespace).Get(pod.Name)
+	require.NoError(t, err)
+	require.False(t, utils.AnnotationEnabled(cachedPod.Annotations[constants.KmeshRedirectionAnnotation]),
+		"test setup invariant: the annotation patch queued by the enroll above must still be unapplied when we unenroll")
+
+	// Immediately unenroll the namespace - no sleep, no wait for the queue.
+	controller.handleNamespaceUpdate(nsWithLabel, nsWithoutLabel)
+
+	assert.True(t, disabled.Load(), "disableKmeshManage must run even though the pod's cached annotation never caught up with the earlier enable")
+	assert.True(t, xdpUnlinked.Load(), "XDP datapath must be torn down for a pod that is no longer enrolled, regardless of stale annotation state")
+	assert.True(t, tcUnlinked.Load(), "TC datapath must be torn down for a pod that is no longer enrolled, regardless of stale annotation state")
+}
+
+// TestNamespaceEnrollThenImmediateUnenroll_SkipsStillEnrolledPod is the
+// selectivity guard for the race reproduced above: a pod that independently
+// still matches ShouldEnroll after the namespace is unenrolled (here, via its
+// own pod-level label) must not be disabled. This proves that tearing down
+// the datapath for a raced pod does not come at the cost of over-disabling
+// pods that are still supposed to be managed.
+func TestNamespaceEnrollThenImmediateUnenroll_SkipsStillEnrolledPod(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+
+	var disabled, xdpUnlinked, tcUnlinked atomic.Bool
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.HandleKmeshManage, func(_ string, op bool) error {
+		if !op {
+			disabled.Store(true)
+		}
+		return nil
+	})
+	patches.ApplyFunc(unlinkXdp, func(_ string, _ string) error {
+		xdpUnlinked.Store(true)
+		return nil
+	})
+	patches.ApplyFunc(unlinkTc, func(_ string, _ int) error {
+		tcUnlinked.Store(true)
+		return nil
+	})
+
+	// This pod carries its own Kmesh label, so it still matches ShouldEnroll
+	// against nsWithoutLabel regardless of the namespace's own label.
+	stillEnrolledPod := podWithLabel.DeepCopy()
+	stillEnrolledPod.Name = "still-enrolled-pod"
+	require.NoError(t, controller.podInformer.GetStore().Add(stillEnrolledPod))
+
+	controller.handleNamespaceAdd(nsWithLabel)
+	controller.handleNamespaceUpdate(nsWithLabel, nsWithoutLabel)
+
+	assert.False(t, disabled.Load(), "disableKmeshManage must not run for a pod that still matches ShouldEnroll after the namespace is unenrolled")
+	assert.False(t, xdpUnlinked.Load(), "XDP datapath must not be touched for a pod that is still enrolled")
+	assert.False(t, tcUnlinked.Load(), "TC datapath must not be touched for a pod that is still enrolled")
+}
+
 func nsObject(name string, managed bool) *corev1.Namespace {
 	ns := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
