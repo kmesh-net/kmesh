@@ -23,6 +23,10 @@ INCLUDES="\
 -I${ROOT_DIR}/bpf/kmesh/general \
 -I${ROOT_DIR}/api/v2-c"
 
+# XDP authorization and userspace connection reset
+clang $COMMON_FLAGS $INCLUDES -c ${OUT_DIR}/xdp_authz_offload_test.c -o ${OUT_DIR}/xdp_authz_offload_test.o
+clang $COMMON_FLAGS $INCLUDES -c ${OUT_DIR}/xdp_shutdown_in_userspace_test.c -o ${OUT_DIR}/xdp_shutdown_in_userspace_test.o
+
 #workload_sendmsg_test.c
 clang $COMMON_FLAGS $INCLUDES -DKMESH_UNIT_TEST -c ${OUT_DIR}/workload_sendmsg_test.c -o ${OUT_DIR}/workload_sendmsg_test.o
 
