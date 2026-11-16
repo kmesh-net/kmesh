@@ -39,7 +39,7 @@ const (
 
 func (i *Installer) getCniConfigPath() (string, error) {
 	var confFile string
-	if len(i.CniConfigName) != 0 {
+	if i.CniConfigName != "" {
 		confFile = filepath.Join(i.CniMountNetEtcDIR, i.CniConfigName)
 		confList, err := libcni.ConfListFromFile(confFile)
 		if err != nil {
