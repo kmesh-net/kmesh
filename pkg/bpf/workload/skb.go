@@ -46,6 +46,7 @@ func (cs *BpfCroupSkbWorkload) NewBpf(cfg *options.BpfConfig) error {
 	cs.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	cs.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/cgroup_skb/"
 	cs.Info.Cgroup2Path = cfg.Cgroup2Path
+	cs.Info.VerifierLogLevel = cfg.BpfVerifierLogLevel
 	cs.InfoEg = cs.Info
 	if err := os.MkdirAll(cs.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -70,6 +71,7 @@ func (cs *BpfCroupSkbWorkload) loadKmeshCgroupSkbObjects() (*ebpf.CollectionSpec
 	)
 
 	opts.Maps.PinPath = cs.Info.MapPath
+	opts.Programs = utils.ProgramOptionsForVerifierLog(cs.Info.VerifierLogLevel)
 
 	if helper.KernelVersionLowerThan5_13() {
 		spec, err = bpf2go.LoadKmeshCgroupSkbCompat()
@@ -86,6 +88,11 @@ func (cs *BpfCroupSkbWorkload) loadKmeshCgroupSkbObjects() (*ebpf.CollectionSpec
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&cs.KmeshCgroupSkbObjects, &opts); err != nil {
 		return nil, err
+	}
+
+	if cs.Info.VerifierLogLevel != 0 {
+		progs := reflect.ValueOf(cs.KmeshCgroupSkbObjects.KmeshCgroupSkbPrograms)
+		utils.LogVerifierOutput(&progs, log.Infof)
 	}
 
 	return spec, nil

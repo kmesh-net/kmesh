@@ -25,4 +25,8 @@ type BpfInfo struct {
 
 	Type       ebpf.ProgramType
 	AttachType ebpf.AttachType
+
+	// VerifierLogLevel is the ebpf verifier log level bitmask requested via
+	// --bpf-verifier-log-level. A value of 0 disables verifier logging.
+	VerifierLogLevel uint32
 }
