@@ -550,8 +550,9 @@ func testSockOps(t *testing.T) {
 						protoType := binary.LittleEndian.Uint32(event[0:4])
 						srcIP := net.IPv4(event[4], event[5], event[6], event[7])
 						dstIP := net.IPv4(event[8], event[9], event[10], event[11])
-						srcPort := binary.BigEndian.Uint16(event[12:14])
-						dstPort := binary.BigEndian.Uint16(event[14:16])
+						// Auth tuples store ports in host byte order.
+						srcPort := binary.NativeEndian.Uint16(event[12:14])
+						dstPort := binary.NativeEndian.Uint16(event[14:16])
 						t.Logf("Received km_auth_req ringbuf_msg: type=%d, src=%s:%d, dst=%s:%d", protoType, srcIP, srcPort, dstIP, dstPort)
 
 						// Check
@@ -596,8 +597,9 @@ func testSockOps(t *testing.T) {
 						key := make([]byte, auth.TUPLE_LEN)                                                       // struct ipv4
 						binary.BigEndian.PutUint32(key[0:4], binary.BigEndian.Uint32(net.ParseIP(localIP).To4())) // __be32 saddr;
 						binary.BigEndian.PutUint32(key[4:8], binary.BigEndian.Uint32(net.ParseIP(localIP).To4())) // __be32 daddr;
-						binary.BigEndian.PutUint16(key[8:10], uint16(serverPort))                                 // __be16 sport;
-						binary.BigEndian.PutUint16(key[10:12], uint16(clientPort))                                // __be16 dport;
+						// Match the client-to-server tuple emitted by the passive socket, with host-order ports.
+						binary.NativeEndian.PutUint16(key[8:10], uint16(clientPort))
+						binary.NativeEndian.PutUint16(key[10:12], uint16(serverPort))
 						for i := auth.IPV4_TUPLE_LENGTH; i < len(key); i++ {
 							key[i] = 0
 						}
@@ -635,9 +637,22 @@ func testSockOps(t *testing.T) {
 						} else {
 							t.Logf("Connect success: %s:%d -> %s:%d", localIP, clientPort, localIP, serverPort)
 						}
+						serverConn, err := listener.Accept()
+						if err != nil {
+							conn.Close()
+							t.Fatalf("Failed to accept TCP connection: %v", err)
+						}
+						// Reset on close so the shared client port is not left in TIME_WAIT
+						// and can be reused by the following socket tests.
+						if err := conn.(*net.TCPConn).SetLinger(0); err != nil {
+							conn.Close()
+							serverConn.Close()
+							t.Fatalf("Failed to set TCP linger: %v", err)
+						}
 						conn.Close()
+						serverConn.Close()
 
-						// Now, the TCP connection between between localIP:12345(client) and localIP:54321(server) has been established and closed
+						// Close both ends so the passive socket reaches BPF_TCP_CLOSE and cleans its auth tuple.
 						time.Sleep(1 * time.Second)
 
 						// Check if the entry was deleted from km_auth_res map
@@ -2616,7 +2631,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						enableAddr := "[" + constants.ControlCommandIp6 + "]" + ":" + strconv.Itoa(int(constants.OperEnableControl))
 						net.DialTimeout("tcp6", enableAddr, 2*time.Second)
@@ -2678,7 +2693,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -2804,7 +2819,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -2943,7 +2958,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3075,7 +3090,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3285,7 +3300,7 @@ func testCgroupSock(t *testing.T) {
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
 						//load the eBPF program
-						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect6_prog", cgroupPath)
 						defer coll.Close()
 						defer lk.Close()
 						// Set the BPF configuration
@@ -3295,7 +3310,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3505,7 +3520,7 @@ func testCgroupSock(t *testing.T) {
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
 						//load the eBPF program
-						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect6_prog", cgroupPath)
 						defer coll.Close()
 						defer lk.Close()
 						// Set the BPF configuration
@@ -3515,7 +3530,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
