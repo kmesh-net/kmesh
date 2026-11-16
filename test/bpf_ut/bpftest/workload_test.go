@@ -642,6 +642,13 @@ func testSockOps(t *testing.T) {
 							conn.Close()
 							t.Fatalf("Failed to accept TCP connection: %v", err)
 						}
+						// Reset on close so the shared client port is not left in TIME_WAIT
+						// and can be reused by the following socket tests.
+						if err := conn.(*net.TCPConn).SetLinger(0); err != nil {
+							conn.Close()
+							serverConn.Close()
+							t.Fatalf("Failed to set TCP linger: %v", err)
+						}
 						conn.Close()
 						serverConn.Close()
 
