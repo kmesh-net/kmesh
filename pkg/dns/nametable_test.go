@@ -16,6 +16,8 @@
 package dns
 
 import (
+	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -144,5 +146,48 @@ func TestBuildNameTable(t *testing.T) {
 				t.Fatalf("got diff: %v", diff)
 			}
 		})
+	}
+}
+
+// Run with CLUSTER_DOMAIN set before process startup to exercise the same
+// environment configuration used by the daemon's DNS server and name table.
+func TestBuildNameTableConfiguredClusterDomain(t *testing.T) {
+	// clusterDomain is read during package initialization, so each environment
+	// must be tested in a fresh process rather than changed with t.Setenv alone.
+	if os.Getenv("KMESH_TEST_CLUSTER_DOMAIN") != "1" {
+		for _, domain := range []string{"cluster.local", "corp.internal"} {
+			t.Run(domain, func(t *testing.T) {
+				t.Setenv("CLUSTER_DOMAIN", domain)
+				t.Setenv("KMESH_TEST_CLUSTER_DOMAIN", "1")
+				cmd := exec.Command(os.Args[0], "-test.run=^TestBuildNameTableConfiguredClusterDomain$")
+				if output, err := cmd.CombinedOutput(); err != nil {
+					t.Fatalf("name table with domain %s: %v\n%s", domain, err, output)
+				}
+			})
+		}
+		return
+	}
+	domain := os.Getenv("CLUSTER_DOMAIN")
+	serviceCache := cache.NewServiceCache()
+	hostname := "svc1.ns1.svc." + domain
+	serviceCache.AddOrUpdateService(&workloadapi.Service{
+		Name:      "svc1",
+		Namespace: "ns1",
+		Hostname:  hostname,
+		Addresses: []*workloadapi.NetworkAddress{{Address: []byte{10, 0, 0, 1}}},
+	})
+	got := NewNameTableBuilder(serviceCache, cache.NewWorkloadCache()).BuildNameTable()
+	want := &dnsproto.NameTable{
+		Table: map[string]*dnsproto.NameTable_NameInfo{
+			hostname: {
+				Ips:       []string{"10.0.0.1"},
+				Registry:  "Kubernetes",
+				Namespace: "ns1",
+				Shortname: "svc1",
+			},
+		},
+	}
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Fatalf("unexpected name table (-want +got): %s", diff)
 	}
 }

@@ -41,7 +41,7 @@ spec:
               fieldPath: status.podIP
         - name: XDS_ADDRESS
           value: {{ quote .Values.deploy.kmesh.env.xdsAddress }}
-        - name: KUBERNETES_CLUSTER_DOMAIN
+        - name: CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: SERVICE_ACCOUNT
           valueFrom:

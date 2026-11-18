@@ -77,7 +77,8 @@ func NewXDSConfig(mode string) *XdsConfig {
 		ip = podIP
 	}
 	id := podName + "." + podNamespace
-	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
+	clusterDomain := env.Register("CLUSTER_DOMAIN", defaultClusterLocalDomain, "Cluster domain name.").Get()
+	dnsDomain := podNamespace + ".svc." + clusterDomain
 
 	c.ServiceNode = strings.Join([]string{getNodeRole(mode), ip, id, dnsDomain}, serviceNodeSeparator)
 
