@@ -557,3 +557,15 @@ func CleanupBpfMap() {
 	}
 	log.Info("cleanup bpf map success")
 }
+
+func (l *BpfLoader) IsReady() bool {
+	if l == nil || l.config == nil {
+		return false
+	}
+	if l.config.KernelNativeEnabled() {
+		return l.obj != nil
+	} else if l.config.DualEngineEnabled() {
+		return l.workloadObj != nil
+	}
+	return false
+}
