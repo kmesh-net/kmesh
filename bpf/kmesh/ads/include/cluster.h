@@ -87,25 +87,9 @@ static inline int map_add_cluster_eps(const char *cluster_name, const struct clu
     return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, eps);
 }
 
-static inline int
-cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster_endpoints *cluster_eps)
+static inline int map_delete_cluster_eps(const char *cluster_name)
 {
-    __u32 i;
-    void *ep_ptrs = NULL;
-
-    ep_ptrs = KMESH_GET_PTR_VAL(lb_ep->lb_endpoints, void *);
-    if (!ep_ptrs)
-        return -1;
-
-#pragma unroll
-    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-        if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >= KMESH_PER_ENDPOINT_NUM)
-            break;
-
-        /* store ep identity */
-        cluster_eps->ep_identity[cluster_eps->ep_num++] = (__u64) * ((__u64 *)ep_ptrs + i);
-    }
-    return 0;
+    return kmesh_map_delete_elem(&map_of_cluster_eps, cluster_name);
 }
 
 static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
@@ -131,13 +115,36 @@ static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignm
             continue;
 
         num += (__u32)lb_ep->n_lb_endpoints;
+        if (num > KMESH_PER_ENDPOINT_NUM) {
+            return KMESH_PER_ENDPOINT_NUM;
+        }
     }
     return num;
 }
 
-static inline int cluster_init_endpoints(const char *cluster_name, const Endpoint__ClusterLoadAssignment *cla)
+static inline int
+cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster_endpoints *cluster_eps)
 {
     __u32 i;
+    void *ep_ptrs = NULL;
+
+    ep_ptrs = KMESH_GET_PTR_VAL(lb_ep->lb_endpoints, void *);
+    if (!ep_ptrs)
+        return -1;
+
+#pragma unroll
+    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+        if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >= KMESH_PER_ENDPOINT_NUM)
+            break;
+
+        cluster_eps->ep_identity[cluster_eps->ep_num++] = (__u64) * ((__u64 *)ep_ptrs + i);
+    }
+    return 0;
+}
+
+static inline int cluster_init_endpoints(const char *cluster_name, const Endpoint__ClusterLoadAssignment *cla)
+{
+    __u32 i = 0;
     int ret = 0;
     void *ptrs = NULL;
     Endpoint__LocalityLbEndpoints *ep = NULL;
@@ -173,34 +180,69 @@ static inline int cluster_init_endpoints(const char *cluster_name, const Endpoin
         if (ret != 0)
             return -1;
     }
-
     return map_add_cluster_eps(cluster_name, cluster_eps);
+}
+
+static inline int cluster_check_locality_endpoints(
+    const Endpoint__LocalityLbEndpoints *lb_ep, const struct cluster_endpoints *eps, __u32 *ep_idx)
+{
+    __u32 i;
+    void *ep_ptrs = NULL;
+
+    ep_ptrs = KMESH_GET_PTR_VAL(lb_ep->lb_endpoints, void *);
+    if (!ep_ptrs)
+        return -1;
+
+#pragma unroll
+    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+        if (i >= lb_ep->n_lb_endpoints || *ep_idx >= eps->ep_num)
+            break;
+
+        if (eps->ep_identity[*ep_idx] != (__u64) * ((__u64 *)ep_ptrs + i))
+            return -1;
+
+        (*ep_idx)++;
+    }
+    return 0;
 }
 
 static inline int
 cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint__ClusterLoadAssignment *cla)
 {
-    /* 0 -- failed 1 -- succeed */
-    __u32 i;
-    void *ptrs = NULL;
+    __u32 i = 0;
+    __u32 ep_idx = 0;
+    void *loc_ptrs = NULL;
+    Endpoint__LocalityLbEndpoints *ep = NULL;
+
     __u32 lb_num = cluster_get_endpoints_num(cla);
+
+    if (lb_num > KMESH_PER_ENDPOINT_NUM)
+        lb_num = KMESH_PER_ENDPOINT_NUM;
 
     if (!eps || eps->ep_num != lb_num)
         return 0;
 
-    ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
-    if (!ptrs)
+    loc_ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
+    if (!loc_ptrs)
         return 0;
 
 #pragma unroll
     for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-        if (i >= lb_num) {
+        if (i >= cla->n_endpoints || ep_idx >= eps->ep_num)
             break;
-        }
 
-        if (eps->ep_identity[i] != (__u64)_(ptrs + i))
+        ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
+            (void *)*((__u64 *)loc_ptrs + i), Endpoint__LocalityLbEndpoints);
+        if (!ep)
+            continue;
+
+        if (cluster_check_locality_endpoints(ep, eps, &ep_idx) != 0)
             return 0;
     }
+
+    if (ep_idx != eps->ep_num)
+        return 0;
+
     return 1;
 }
 
@@ -215,15 +257,22 @@ static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster_
         return NULL;
     }
 
-    // FIXME: if control-plane delete or update, clear
-    // FIXME: if cluster_init_endpoints failed, clear
-    // FIXME: if cluster_check_endpoints failed, clear
     eps = map_lookup_cluster_eps(name);
-    if (eps) // TODO: && cluster_check_endpoints(eps, cla) != 0)
-        return eps;
+    if (eps) {
+        if (cluster_check_endpoints(eps, cla) != 0) {
+            return eps;
+        }
+        map_delete_cluster_eps(name); // deletes the stale/invalid cached endpoints
+    }
 
-    if (cluster_init_endpoints(name, cla) != 0)
+    if (cluster_get_endpoints_num(cla) == 0) {
         return NULL;
+    }
+
+    if (cluster_init_endpoints(name, cla) != 0) {
+        (void)map_delete_cluster_eps(name);
+        return NULL;
+    }
     return map_lookup_cluster_eps(name);
 }
 
