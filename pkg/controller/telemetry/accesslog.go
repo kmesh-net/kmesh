@@ -35,6 +35,7 @@ type logInfo struct {
 	destinationService   string
 	destinationWorkload  string
 	destinationNamespace string
+	responseFlags        string
 }
 
 func NewLogInfo() *logInfo {
@@ -93,7 +94,7 @@ func buildAccesslog(reqMetric requestMetric, connMetrics connMetric, accesslog l
 	timeInfo := fmt.Sprintf("%v", uptime)
 	sourceInfo := fmt.Sprintf("src.addr=%s, src.workload=%s, src.namespace=%s", accesslog.sourceAddress, accesslog.sourceWorkload, accesslog.sourceNamespace)
 	destinationInfo := fmt.Sprintf("dst.addr=%s, dst.service=%s, dst.workload=%s, dst.namespace=%s", accesslog.destinationAddress, accesslog.destinationService, accesslog.destinationWorkload, accesslog.destinationNamespace)
-	connectionInfo := fmt.Sprintf("start_time=%s, direction=%s, state=%s, sent_bytes=%d, received_bytes=%d, packet_loss=%d, retransmissions=%d, srtt=%dus, min_rtt=%dus, duration=%vms", startTimeInfo, accesslog.direction, accesslog.state, connMetrics.sentBytes, connMetrics.receivedBytes, connMetrics.packetLost, connMetrics.totalRetrans, reqMetric.srtt, reqMetric.minRtt, (float64(reqMetric.duration) / 1000000.0))
+	connectionInfo := fmt.Sprintf("start_time=%s, direction=%s, state=%s, response_flags=%s, sent_bytes=%d, received_bytes=%d, packet_loss=%d, retransmissions=%d, srtt=%dus, min_rtt=%dus, duration=%vms", startTimeInfo, accesslog.direction, accesslog.state, accesslog.responseFlags, connMetrics.sentBytes, connMetrics.receivedBytes, connMetrics.packetLost, connMetrics.totalRetrans, reqMetric.srtt, reqMetric.minRtt, (float64(reqMetric.duration) / 1000000.0))
 
 	logResult := fmt.Sprintf("%s %s, %s, %s", timeInfo, sourceInfo, destinationInfo, connectionInfo)
 	return logResult
