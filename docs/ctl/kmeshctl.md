@@ -11,6 +11,7 @@ Kmesh command line tools to operate and debug Kmesh
 ### SEE ALSO
 
 * [kmeshctl authz](kmeshctl_authz.md) - Manage xdp authz eBPF program for Kmesh's authz offloading
+* [kmeshctl dnsproxy](kmeshctl_dnsproxy.md) - Enable or disable Kmesh's DNS proxy
 * [kmeshctl dump](kmeshctl_dump.md) - Dump config of kernel-native or dual-engine mode
 * [kmeshctl log](kmeshctl_log.md) - Get or set kmesh-daemon's logger level
 * [kmeshctl mcp](kmeshctl_mcp.md) - Manage the Kmesh Model Context Protocol (MCP) server
