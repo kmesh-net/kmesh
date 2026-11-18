@@ -20,13 +20,16 @@
 package cni
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/containernetworking/cni/libcni"
+	"github.com/fsnotify/fsnotify"
 
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -211,8 +214,74 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	log.Infof("cni config file: %s", cniConfigFilePath)
 
 	/*
-	 TODO: add watcher for cniConfigFile
-	*/
+	 * Watch the CNI config file for any changes or recreations.
+	 * If another plugin or system process overwrites it, we need to make sure Kmesh is still properly injected!
+	 */
+	if err := i.Watcher.Add(cniConfigFilePath); err != nil {
+		return fmt.Errorf("failed to add %s to file watcher: %v", cniConfigFilePath, err)
+	}
+
+	go func() {
+		log.Infof("Friendly neighborhood file watcher started for %s", cniConfigFilePath)
+
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+
+				// Let's check if our Kmesh configuration is still there.
+				currentConfig, err := os.ReadFile(cniConfigFilePath)
+				if err != nil {
+					log.Errorf("Oops, couldn't read the CNI config file %v: %v", cniConfigFilePath, err)
+					continue
+				}
+
+				newCNIConfig, err := i.insertCNIConfig(currentConfig, mode)
+				if err != nil {
+					log.Errorf("Uh oh, failed to assemble the CNI config: %v", err)
+					continue
+				}
+
+				// Only write if there's an actual change, so we don't end up in an endless loop of writing and catching our own events!
+				if !bytes.Equal(currentConfig, newCNIConfig) {
+					fileInfo, err := os.Stat(cniConfigFilePath)
+					if err != nil {
+						log.Errorf("Couldn't read CNI config file permissions: %v", err)
+						continue
+					}
+
+					log.Infof("Looks like Kmesh was removed from the CNI config. Re-injecting it now!")
+					err = utils.AtomicWrite(cniConfigFilePath, newCNIConfig, fileInfo.Mode().Perm())
+					if err != nil {
+						log.Errorf("Failed to write the updated CNI config file: %v", err)
+					}
+				}
+
+			case event, ok := <-i.Watcher.Events(cniConfigFilePath):
+				if !ok {
+					log.Infof("File watcher closed, exiting watcher goroutine")
+					return
+				}
+				log.Debugf("Caught a file event: %s", event.String())
+
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					// We'll wait a brief moment (debounce) just in case there are multiple rapid writes happening.
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond)
+					}
+				}
+			case err, ok := <-i.Watcher.Errors(cniConfigFilePath):
+				if !ok {
+					return
+				}
+				if err != nil {
+					log.Errorf("Something went wrong with the file watcher: %v", err)
+					return
+				}
+			}
+		}
+	}()
 
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
