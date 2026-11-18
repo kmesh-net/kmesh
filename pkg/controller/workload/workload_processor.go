@@ -17,6 +17,7 @@
 package workload
 
 import (
+	"errors"
 	"fmt"
 	"net/netip"
 	"os"
@@ -199,8 +200,25 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	}
 }
 
-// TODO: optimize me by passing workload ip directly
-func (p *Processor) deletePodFrontendData(uid uint32) error {
+func (p *Processor) deletePodFrontendData(uid uint32, ips [][]byte) error {
+	if len(ips) > 0 {
+		var errs []error
+		for _, ip := range ips {
+			fk := bpf.FrontendKey{}
+			nets.CopyIpByteFromSlice(&fk.Ip, ip)
+
+			var fv bpf.FrontendValue
+			if err := p.bpf.FrontendLookup(&fk, &fv); err == nil {
+				if fv.UpstreamId == uid {
+					if err := p.bpf.FrontendDelete(&fk); err != nil {
+						log.Errorf("FrontendDelete failed: %v", err)
+						errs = append(errs, err)
+					}
+				}
+			}
+		}
+		return errors.Join(errs...)
+	}
 	var (
 		bk = bpf.BackendKey{}
 		bv = bpf.BackendValue{}
@@ -283,29 +301,30 @@ func (p *Processor) handleUnhealthyWorkload(workload *workloadapi.Workload) erro
 
 func (p *Processor) removeWorkloadFromBpfMap(workload *workloadapi.Workload) error {
 	var (
-		err      error
+		errs     []error
 		bkDelete = bpf.BackendKey{}
 	)
 
 	backendUid := p.hashName.Hash(workload.Uid)
 	// 1. for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
-	if err = p.deletePodFrontendData(backendUid); err != nil {
-		log.Errorf("deletePodFrontendData %d failed: %v", backendUid, err)
-		return err
+	if err := p.deletePodFrontendData(backendUid, workload.GetAddresses()); err != nil {
+		log.Errorf("deletePodFrontendData %s failed: %v", workload.Uid, err)
+		errs = append(errs, err)
 	}
 
 	// 2. find all endpoint keys related to this workload
 	if eks := p.bpf.GetEndpointKeys(backendUid); len(eks) > 0 {
-		err = p.deleteEndpointRecords(eks.UnsortedList())
-		if err != nil {
-			return err
+		if err := p.deleteEndpointRecords(eks.UnsortedList()); err != nil {
+			log.Errorf("deleteEndpointRecords %s failed: %v", workload.Uid, err)
+			errs = append(errs, err)
 		}
 	}
 
 	// 3. delete workload from backend map
 	bkDelete.BackendUid = backendUid
-	if err = p.bpf.BackendDelete(&bkDelete); err != nil {
-		return err
+	if err := p.bpf.BackendDelete(&bkDelete); err != nil {
+		log.Errorf("BackendDelete %s failed: %v", workload.Uid, err)
+		errs = append(errs, err)
 	}
 
 	// 4. delete auth policy of workload
@@ -314,7 +333,7 @@ func (p *Processor) removeWorkloadFromBpfMap(workload *workloadapi.Workload) err
 	}
 
 	p.hashName.Delete(workload.Uid)
-	return nil
+	return errors.Join(errs...)
 }
 
 func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id uint32) error {
