@@ -150,4 +150,27 @@ func TestBypassController(t *testing.T) {
 	wg.Wait()
 	assert.Equal(t, true, enabled.Load(), "unexpected value for enabled flag")
 	assert.Equal(t, false, disabled.Load(), "unexpected value for disabled flag")
+
+	enabled.Store(false)
+	disabled.Store(false)
+	// case 5: Pod with sidecar but no bypass label at creation
+	podWithSidecarButNoBypass := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod-no-bypass",
+			Namespace: namespaceName,
+			Labels:    map[string]string{}, // no bypass label
+			Annotations: map[string]string{
+				"sidecar.istio.io/status": "placeholder",
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+		},
+	}
+	wg.Add(1)
+	_, err = client.CoreV1().Pods(namespaceName).Create(context.TODO(), podWithSidecarButNoBypass, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	wg.Wait()
+	assert.Equal(t, false, enabled.Load(), "unexpected value for enabled flag")
+	assert.Equal(t, true, disabled.Load(), "unexpected value for disabled flag")
 }
