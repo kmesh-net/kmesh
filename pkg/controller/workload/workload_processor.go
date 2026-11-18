@@ -46,6 +46,8 @@ import (
 	"kmesh.net/kmesh/pkg/utils"
 )
 
+
+
 const (
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
 	// dnsResolveTimeout is the timeout used when waiting for DNS resolution for workloads
@@ -80,23 +82,24 @@ type Processor struct {
 	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
 	// Callback to remove workload from DNS cache when workload is deleted
 	onWorkloadDeleted func(workloadName string)
+
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	serviceCache := cache.NewServiceCache()
 
 	return &Processor{
-		hashName:      utils.NewHashName(),
-		bpf:           bpf.NewCache(workloadMap),
-		nodeName:      os.Getenv("NODE_NAME"),
-		WorkloadCache: cache.NewWorkloadCache(),
-		ServiceCache:  serviceCache,
-		EndpointCache: cache.NewEndpointCache(),
-		WaypointCache: cache.NewWaypointCache(serviceCache),
-		locality:      bpf.NewLocalityCache(),
-		addressDone:   make(chan struct{}, 1),
-		authzDone:     make(chan struct{}, 1),
-		handlers:      map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error{},
+		hashName:          utils.NewHashName(),
+		bpf:               bpf.NewCache(workloadMap),
+		nodeName:          os.Getenv("NODE_NAME"),
+		WorkloadCache:     cache.NewWorkloadCache(),
+		ServiceCache:      serviceCache,
+		EndpointCache:     cache.NewEndpointCache(),
+		WaypointCache:     cache.NewWaypointCache(serviceCache),
+		locality:          bpf.NewLocalityCache(),
+		addressDone:       make(chan struct{}, 1),
+		authzDone:         make(chan struct{}, 1),
+		handlers:          map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error{},
 	}
 }
 
@@ -434,27 +437,30 @@ func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload
 }
 
 // handleWorkloadNewBoundServices handles when a workload's belonging services added
-func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workload, newServices []uint32) error {
+func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workload, servicesToAdd map[uint32]uint32) error {
 	var (
 		sk = bpf.ServiceKey{}
 		sv = bpf.ServiceValue{}
 	)
 
-	if len(newServices) == 0 {
+	if len(servicesToAdd) == 0 {
 		return nil
 	}
 
-	log.Debugf("handleWorkloadNewBoundServices %s: %v", workload.ResourceName(), newServices)
+	log.Debugf("handleWorkloadNewBoundServices %s: %v", workload.ResourceName(), servicesToAdd)
 	workloadId := p.hashName.Hash(workload.GetUid())
-	for _, svcUid := range newServices {
+	for svcUid, addCount := range servicesToAdd {
 		sk.ServiceId = svcUid
 		// the service already stored in map, add endpoint
 		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if sv.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // random mode
-				// In random mode, we save all workload to max priority group
-				if _, err = p.addWorkloadToService(&sk, &sv, workloadId, 0); err != nil {
-					log.Errorf("addWorkloadToService workload %d service %d failed: %v", workloadId, sk.ServiceId, err)
-					return err
+				// In random mode, we save all workload to max priority group.
+				// Repeat `addCount` times so the workload gets proportional LB slots.
+				for j := uint32(0); j < addCount; j++ {
+					if _, err = p.addWorkloadToService(&sk, &sv, workloadId, 0); err != nil {
+						log.Errorf("addWorkloadToService workload %d service %d slot %d failed: %v", workloadId, sk.ServiceId, j, err)
+						return err
+					}
 				}
 			} else { // locality mode
 				service := p.ServiceCache.GetService(p.hashName.NumToStr(svcUid))
@@ -468,9 +474,11 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 						// when locality is eventually set
 						prio = 0
 					}
-					if _, err = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
-						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)
-						return err
+					for j := uint32(0); j < addCount; j++ {
+						if _, err = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
+							log.Errorf("addWorkloadToService workload %d service %d priority %d slot %d failed: %v", workloadId, sk.ServiceId, prio, j, err)
+							return err
+						}
 					}
 				}
 			}
@@ -492,6 +500,14 @@ func (p *Processor) updateWorkloadInBackendMap(workload *workloadapi.Workload) e
 	if waypoint := workload.GetWaypoint(); waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
 		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+	}
+
+	// Populate EW gateway fields for remote workloads.
+	// When gw_port != 0, the BPF program DNATs to the gateway (via_waypoint=true)
+	// so the TLV carries bv.Ip (the actual backend IP) to the EW gateway.
+	if gw := workload.GetNetworkGateway(); gw != nil && gw.GetAddress() != nil {
+		nets.CopyIpByteFromSlice(&bv.GatewayAddr, gw.GetAddress().Address)
+		bv.GatewayPort = nets.ConvertPortToBigEndian(gw.GetHboneMtlsPort())
 	}
 
 	for serviceName := range workload.GetServices() {
@@ -518,6 +534,12 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 	// we should not store frontend data of hostname network mode pods
 	// please see https://github.com/kmesh-net/kmesh/issues/631
 	if workload.GetNetworkMode() == workloadapi.NetworkMode_HOST_NETWORK {
+		return nil
+	}
+
+	// Remote workloads routed via EW gateway must not be stored in the frontend map.
+	// They share a service VIP as their IP; direct pod-IP lookup would be incorrect.
+	if workload.GetNetworkGateway() != nil {
 		return nil
 	}
 
@@ -587,13 +609,13 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	}
 
 	// 2~3. update workload in endpoint map and service map
-	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
+	unboundedEndpointKeys, servicesToAdd := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
 		return fmt.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
 	}
 
 	// Add new services associated with the workload
-	if err := p.handleWorkloadNewBoundServices(workload, newServices); err != nil {
+	if err := p.handleWorkloadNewBoundServices(workload, servicesToAdd); err != nil {
 		return fmt.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
 	}
 
@@ -621,23 +643,55 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	return nil
 }
 
-// compareWorkloadServices compares workload.Services with existing ones and return the unbounded EndpointKeys and new bound services IDs.
-func (p *Processor) compareWorkloadServices(workload *workloadapi.Workload) ([]bpf.EndpointKey, []uint32) {
+// compareWorkloadServices compares workload.Services with existing ones and return the unbounded EndpointKeys and a map of slots to add.
+func (p *Processor) compareWorkloadServices(workload *workloadapi.Workload) ([]bpf.EndpointKey, map[uint32]uint32) {
 	workloadUid := p.hashName.Hash(workload.Uid)
+	
+	capacity := uint32(1)
+	if c := workload.GetCapacity(); c != nil && c.GetValue() > 0 {
+		capacity = c.GetValue()
+	}
+
 	allServices := sets.New[uint32]()
 	for svcKey := range workload.Services {
 		allServices.Insert(p.hashName.Hash(svcKey))
 	}
+
 	unboundedEndpointKeys := []bpf.EndpointKey{}
+	servicesToAdd := make(map[uint32]uint32)
+
+	// Group existing keys by ServiceId
+	currentSlots := make(map[uint32][]bpf.EndpointKey)
 	eks := p.bpf.GetEndpointKeys(workloadUid)
 	for ek := range eks {
-		if !allServices.Contains(ek.ServiceId) {
-			unboundedEndpointKeys = append(unboundedEndpointKeys, ek)
-		}
-		allServices.Delete(ek.ServiceId)
+		currentSlots[ek.ServiceId] = append(currentSlots[ek.ServiceId], ek)
 	}
-	newServices := allServices.UnsortedList()
-	return unboundedEndpointKeys, newServices
+
+	for svcId, keys := range currentSlots {
+		if !allServices.Contains(svcId) {
+			// Service completely unbound, remove all its keys
+			unboundedEndpointKeys = append(unboundedEndpointKeys, keys...)
+		} else {
+			// Service still bound. Check capacity difference.
+			currCount := uint32(len(keys))
+			if currCount > capacity {
+				// Capacity dropped, delete the excess keys
+				unboundedEndpointKeys = append(unboundedEndpointKeys, keys[capacity:]...)
+			} else if currCount < capacity {
+				// Capacity increased, need to add more slots
+				servicesToAdd[svcId] = capacity - currCount
+			}
+			// Mark as processed
+			allServices.Delete(svcId)
+		}
+	}
+
+	// Any services remaining in allServices are completely new bindings
+	for svcId := range allServices {
+		servicesToAdd[svcId] = capacity
+	}
+
+	return unboundedEndpointKeys, servicesToAdd
 }
 
 func (p *Processor) updateServiceFrontendMap(serviceId uint32, service *workloadapi.Service) error {
@@ -953,31 +1007,48 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 
 	for _, workload := range workloads {
 		if workload.GetAddresses() == nil {
-			if p.DnsResolverChan == nil {
-				log.Warnf("workload %s/%s has nil addresses but DNS resolver is disabled", workload.Namespace, workload.Name)
-				continue
-			}
-
-			uid := workload.GetUid()
-			p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
-			p.DnsResolverChan <- workload
-			log.Infof("waiting for DNS resolution: %s/%s/%s", workload.Namespace, workload.Name, uid)
-
-			select {
-			case <-time.After(dnsResolveTimeout):
-				log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", workload.Namespace, workload.Name, uid)
-				if ch, ok := p.ResolvedDomainChanMap[uid]; ok {
-					close(ch)
-					delete(p.ResolvedDomainChanMap, uid)
-				}
-				continue
-			case newWorkload := <-p.ResolvedDomainChanMap[uid]:
-				if newWorkload == nil || newWorkload.GetAddresses() == nil {
-					log.Warnf("workload %s/%s resolved addresses is nil, skip handling", workload.Namespace, workload.Name)
+			if gw := workload.GetNetworkGateway(); gw != nil && gw.GetAddress() != nil {
+				// Remote workload routed via EW gateway.
+				// Resolve the service VIP for this workload's network and use it as the
+				// backend IP (embedded in TLV). Capacity is handled in handleWorkloadNewBoundServices
+				// by inserting the BackendUid into the endpoint map N times — no synthetic UIDs.
+				vip := p.resolveNetworkVIP(workload)
+				if vip == nil {
+					log.Warnf("workload %s has networkGateway but no VIP resolved for network %s, skipping",
+						workload.ResourceName(), workload.GetNetwork())
 					continue
 				}
-				log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
-				workload = newWorkload
+				workload.Addresses = [][]byte{vip}
+				log.Debugf("workload %s resolved VIP %v for network %s (capacity=%v)",
+					workload.ResourceName(), vip, workload.GetNetwork(), workload.GetCapacity())
+				// Fall through to handleWorkload — capacity loop runs in handleWorkloadNewBoundServices
+			} else {
+				if p.DnsResolverChan == nil {
+					log.Warnf("workload %s/%s has nil addresses but DNS resolver is disabled", workload.Namespace, workload.Name)
+					continue
+				}
+
+				uid := workload.GetUid()
+				p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
+				p.DnsResolverChan <- workload
+				log.Infof("waiting for DNS resolution: %s/%s/%s", workload.Namespace, workload.Name, uid)
+
+				select {
+				case <-time.After(dnsResolveTimeout):
+					log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", workload.Namespace, workload.Name, uid)
+					if ch, ok := p.ResolvedDomainChanMap[uid]; ok {
+						close(ch)
+						delete(p.ResolvedDomainChanMap, uid)
+					}
+					continue
+				case newWorkload := <-p.ResolvedDomainChanMap[uid]:
+					if newWorkload == nil || newWorkload.GetAddresses() == nil {
+						log.Warnf("workload %s/%s resolved addresses is nil, skip handling", workload.Namespace, workload.Name)
+						continue
+					}
+					log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
+					workload = newWorkload
+				}
 			}
 		}
 
@@ -1218,3 +1289,30 @@ func (p *Processor) deleteFrontendByIp(addresses [][]byte) error {
 
 	return nil
 }
+
+// resolveNetworkVIP finds the service VIP for the workload's network from the ServiceCache.
+//
+// Example: workload on network2 for service "sample/helloworld.sample.svc.cluster.local"
+// → ServiceCache entry has addresses: [network1/10.255.10.31, network2/10.255.20.230]
+// → Returns 10.255.20.230
+//
+// This IP is stored in backend_value.Ip and embedded in the TLV header by the BPF sock_ops
+// layer so the EW gateway knows where to forward internally.
+func (p *Processor) resolveNetworkVIP(workload *workloadapi.Workload) []byte {
+	network := workload.GetNetwork()
+
+	for svcKey := range workload.GetServices() {
+		svc := p.ServiceCache.GetService(svcKey)
+		if svc == nil {
+			log.Debugf("resolveNetworkVIP: service %s not in cache yet for workload %s", svcKey, workload.ResourceName())
+			continue
+		}
+		for _, netAddr := range svc.GetAddresses() {
+			if netAddr.GetNetwork() == network && len(netAddr.GetAddress()) > 0 {
+				return netAddr.GetAddress()
+			}
+		}
+	}
+	return nil
+}
+

@@ -38,6 +38,8 @@ type BackendValue struct {
 	Services     ServiceList
 	WaypointAddr [16]byte
 	WaypointPort uint32
+	GatewayAddr  [16]byte // EW gateway IP; zero = no gateway
+	GatewayPort  uint32   // EW gateway port; zero = no gateway
 }
 
 func (c *Cache) BackendUpdate(key *BackendKey, value *BackendValue) error {
@@ -69,3 +71,4 @@ func (c *Cache) BackendLookupAll() []BackendValue {
 	log.Debugf("BackendLookupAll")
 	return LookupAll[BackendKey, BackendValue](c.bpfMap.KmBackend)
 }
+
