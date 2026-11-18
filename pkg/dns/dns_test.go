@@ -142,3 +142,34 @@ func TestDNS(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestGetDomainAddress(t *testing.T) {
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.refreshQueue.ShutDown()
+
+	// Cached domain: returns its addresses and true.
+	want := []string{"10.0.0.1", "fd00::1"}
+	r.Lock()
+	r.cache["cached.example.com."] = &DomainCacheEntry{Addresses: want}
+	r.Unlock()
+
+	if got, ok := r.GetDomainAddress("cached.example.com."); !ok || !reflect.DeepEqual(got, want) {
+		t.Errorf("GetDomainAddress(cached) = (%v, %v), want (%v, true)", got, ok, want)
+	}
+
+	// Absent domain: must return (nil, false) for a key that was never cached.
+	if got, ok := r.GetDomainAddress("absent.example.com."); ok || got != nil {
+		t.Errorf("GetDomainAddress(absent) = (%v, %v), want (nil, false)", got, ok)
+	}
+
+	// Present key mapped to a nil entry: must not panic, returns (nil, false).
+	r.Lock()
+	r.cache["nil.example.com."] = nil
+	r.Unlock()
+	if got, ok := r.GetDomainAddress("nil.example.com."); ok || got != nil {
+		t.Errorf("GetDomainAddress(nil entry) = (%v, %v), want (nil, false)", got, ok)
+	}
+}
