@@ -63,6 +63,7 @@ type Controller struct {
 	ipsecController     *ipsec.Controller
 	enableByPass        bool
 	enableSecretManager bool
+	SecretManager       *security.SecretManager
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
 	dnsServer           *dnsclient.LocalDNSServer
@@ -113,15 +114,14 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.mode == constants.DualEngineMode {
-		var secertManager *security.SecretManager
 		if c.enableSecretManager {
-			secertManager, err = security.NewSecretManager()
+			c.SecretManager, err = security.NewSecretManager()
 			if err != nil {
 				return fmt.Errorf("secretManager create failed: %v", err)
 			}
-			go secertManager.Run(stopCh)
+			go c.SecretManager.Run(stopCh)
 		}
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, c.SecretManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
 	} else {
 		kolog.KmeshModuleLog(stopCh)
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
