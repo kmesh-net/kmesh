@@ -106,12 +106,16 @@ func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.Bp
 
 			switch {
 			case !hasNew && hasOld: // clean up
-				oldMap, _ := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-				if err := oldMap.Unpin(); err != nil && !os.IsNotExist(err) {
-					log.Warnf("failed to unpin old map: %v (continuing)", err)
-				}
-				if err := oldMap.Close(); err != nil {
-					log.Warnf("failed to close old map FD: %v (continuing)", err)
+				oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
+				if err != nil {
+					log.Warnf("failed to load pinned map %s: %v (continuing)", pinPath, err)
+				} else {
+					if err := oldMap.Unpin(); err != nil && !os.IsNotExist(err) {
+						log.Warnf("failed to unpin old map: %v (continuing)", err)
+					}
+					if err := oldMap.Close(); err != nil {
+						log.Warnf("failed to close old map FD: %v (continuing)", err)
+					}
 				}
 				if err := os.Remove(pinPath); err != nil && !os.IsNotExist(err) {
 					log.Warnf("failed to remove old map pinpath: %v (continuing)", err)
