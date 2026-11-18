@@ -105,13 +105,13 @@ func (p *Processor) WithResourceHandlers(typeUrl string, h ...func(resp *service
 	return p
 }
 
-func (p *Processor) PrepareDNSProxy() error {
+func (p *Processor) PrepareDNSProxy(enableDNSProxy bool) error {
 	bk := &bpf.BackendKey{
 		BackendUid: 0,
 	}
 
 	// when dns proxy is not enabled, we unregister kmesh daemon from bpf map
-	if !EnableDNSProxy {
+	if !enableDNSProxy {
 		return p.bpf.BackendDelete(bk)
 	}
 
