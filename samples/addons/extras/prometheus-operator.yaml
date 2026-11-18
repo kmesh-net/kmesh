@@ -1,0 +1,42 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kmesh-stats-monitor
+  namespace: kmesh-system
+spec:
+  selector:
+    matchLabels:
+      app: kmesh
+  namespaceSelector:
+    any: true
+  podMetricsEndpoints:
+  - interval: 15s
+    path: /status/metric
+    relabelings:
+      - action: keep
+        regex: kmesh
+        sourceLabels:
+          - __meta_kubernetes_pod_label_app
+      - action: replace
+        sourceLabels:
+          - __meta_kubernetes_pod_ip
+        targetLabel: __address__
+        replacement: $1:15020
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: kmesh-to-istio-metric-rename
+  namespace: kmesh-system
+spec:
+  groups:
+    - name: rename_kmesh_metrics_to_istio
+      rules:
+        - record: istio_tcp_sent_bytes_total
+          expr: kmesh_tcp_sent_bytes_total
+        - record: istio_tcp_received_bytes_total
+          expr: kmesh_tcp_received_bytes_total
+        - record: istio_tcp_connections_opened_total
+          expr: kmesh_tcp_connections_opened_total
+        - record: istio_tcp_connections_closed_total
+          expr: kmesh_tcp_connections_closed_total
