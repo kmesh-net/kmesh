@@ -75,13 +75,22 @@ func GetExitType() StartType {
 	return kmeshExitType
 }
 
+// daemonSetNameFromPod strips the random suffix Kubernetes appends to a
+// DaemonSet pod's name. The daemonset name itself can contain dashes (e.g.
+// helm releases named "cluster-kmesh"), so only the last segment goes.
+func daemonSetNameFromPod(podName string) string {
+	if i := strings.LastIndex(podName, "-"); i >= 0 {
+		return podName[:i]
+	}
+	return podName
+}
+
 func InferNextStartType() StartType {
 	clientset, err := kube.CreateKubeClient("")
 	if err != nil {
 		return Normal
 	}
-	podName := strings.Split(env.Register("POD_NAME", "", "").Get(), "-")
-	daemonSetName := podName[0]
+	daemonSetName := daemonSetNameFromPod(env.Register("POD_NAME", "", "").Get())
 	daemonSetNamespace := env.Register("POD_NAMESPACE", "", "").Get()
 	daemonSet, err := clientset.AppsV1().DaemonSets(daemonSetNamespace).Get(context.TODO(), daemonSetName, metav1.GetOptions{})
 	if err == nil {
