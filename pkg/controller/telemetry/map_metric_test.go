@@ -33,7 +33,7 @@ func TestBuildMapMetricLabel(t *testing.T) {
 	}{
 		{
 			name: "valid MapInfo",
-			data: &MapInfo{mapName: "kmesh_map", entryCount: 5},
+			data: &MapInfo{mapName: "kmesh_map", entryCount: 5, maxEntries: 1024, memlockBytes: 4096},
 			expected: mapMetricLabels{
 				mapName:  "kmesh_map",
 				nodeName: "test-node",
@@ -44,6 +44,55 @@ func TestBuildMapMetricLabel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := buildMapMetricLabel(tt.data)
 			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestBuildMapMetricDetailedLabel(t *testing.T) {
+	os.Setenv("NODE_NAME", "test-node")
+	defer os.Unsetenv("NODE_NAME")
+	tests := []struct {
+		name     string
+		data     *MapInfo
+		expected detailedMapMetricLabels
+	}{
+		{
+			name: "valid MapInfo with type",
+			data: &MapInfo{mapName: "kmesh_map", mapType: "Hash", entryCount: 5, maxEntries: 1024, memlockBytes: 4096},
+			expected: detailedMapMetricLabels{
+				mapName:  "kmesh_map",
+				nodeName: "test-node",
+				mapType:  "Hash",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildMapMetricDetailedLabel(tt.data)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestUtilizationRatio(t *testing.T) {
+	tests := []struct {
+		name      string
+		entryCount uint32
+		maxEntries uint32
+		expected  float64
+	}{
+		{name: "zero entries", entryCount: 0, maxEntries: 1024, expected: 0.0},
+		{name: "half full", entryCount: 512, maxEntries: 1024, expected: 0.5},
+		{name: "full", entryCount: 1024, maxEntries: 1024, expected: 1.0},
+		{name: "empty max entries", entryCount: 10, maxEntries: 0, expected: 0.0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ratio float64
+			if tt.maxEntries > 0 {
+				ratio = float64(tt.entryCount) / float64(tt.maxEntries)
+			}
+			assert.Equal(t, tt.expected, ratio)
 		})
 	}
 }
