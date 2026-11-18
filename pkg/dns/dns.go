@@ -147,9 +147,9 @@ func (r *DNSResolver) resolve(domainName string) ([]string, time.Duration, error
 		return []string{}, DeRefreshInterval, fmt.Errorf("dns resolve failed: %v", err)
 	}
 
-	r.RLock()
+	r.Lock()
 	entry.Addresses = addrs
-	r.RUnlock()
+	r.Unlock()
 
 	return addrs, ttl, nil
 }
