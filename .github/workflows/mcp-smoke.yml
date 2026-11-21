@@ -1,0 +1,53 @@
+name: MCP Smoke Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'
+
+jobs:
+  mcp-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4.0.0
+        with:
+          go-version: '1.25.5'
+
+      - name: Create kind cluster
+        run: kind create cluster --name kmesh-mcp
+
+      - name: Install istioctl
+        run: |
+          curl -L https://istio.io/downloadIstio | sh -
+          echo "$GITHUB_WORKSPACE/$(ls -d istio-*/ | head -1)bin" >> "$GITHUB_PATH"
+
+      - name: Install Istio (ambient)
+        run: istioctl install --set profile=ambient -y
+
+      - name: Deploy Kmesh
+        run: |
+          kubectl apply -f deploy/yaml/crd/
+          kubectl apply -f deploy/yaml/kmesh.yaml
+          kubectl apply -f deploy/yaml/serviceaccount.yaml
+          kubectl apply -f deploy/yaml/clusterrole.yaml
+          kubectl apply -f deploy/yaml/clusterrolebinding.yaml
+          kubectl -n istio-system wait --for=condition=available deploy/istiod --timeout=180s
+          kubectl -n istio-system get configmap istio-ca-root-cert -o jsonpath='{.data.root-cert\.pem}' > /tmp/root-cert.pem
+          kubectl -n kmesh-system create configmap istio-ca-root-cert --from-file=root-cert.pem=/tmp/root-cert.pem
+          kubectl -n kmesh-system rollout restart ds/kmesh
+          kubectl -n kmesh-system rollout status ds/kmesh --timeout=180s
+
+      - name: Deploy bookinfo
+        run: |
+          kubectl create namespace bookinfo
+          kubectl label namespace bookinfo istio.io/dataplane-mode=Kmesh
+          kubectl apply -n bookinfo -f https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl -n bookinfo wait --for=condition=ready pod --all --timeout=300s
+
+      - name: Run MCP smoke test
+        run: hack/mcp-e2e-smoke.sh
