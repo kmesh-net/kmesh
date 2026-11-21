@@ -1,0 +1,3 @@
+# Keep shell and Python scripts LF so they run unchanged on Linux and WSL.
+*.sh text eol=lf
+hack/*.py text eol=lf
