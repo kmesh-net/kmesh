@@ -256,6 +256,46 @@ func testXDP(t *testing.T) {
 						}
 					},
 				},
+				{
+					name: "5_deny_not_source_ip_outside_range",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setupXdpAuthzPolicy(t, coll, security.Action_DENY, &security.Match{
+							NotSourceIps: []*security.Address{{Address: []byte{192, 168, 0, 0}, Length: 16}},
+						})
+					},
+				},
+				{
+					name: "6_deny_not_source_ip_inside_range",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setupXdpAuthzPolicy(t, coll, security.Action_DENY, &security.Match{
+							NotSourceIps: []*security.Address{{Address: []byte{10, 0, 0, 0}, Length: 8}},
+						})
+					},
+				},
+				{
+					name: "7_allow_not_source_ip_outside_range",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setupXdpAuthzPolicy(t, coll, security.Action_ALLOW, &security.Match{
+							NotSourceIps: []*security.Address{{Address: []byte{192, 168, 0, 0}, Length: 16}},
+						})
+					},
+				},
+				{
+					name: "8_allow_not_source_ip_inside_range",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setupXdpAuthzPolicy(t, coll, security.Action_ALLOW, &security.Match{
+							NotSourceIps: []*security.Address{{Address: []byte{10, 0, 0, 0}, Length: 8}},
+						})
+					},
+				},
+				{
+					name: "9_deny_not_destination_ip_outside_range",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setupXdpAuthzPolicy(t, coll, security.Action_DENY, &security.Match{
+							NotDestinationIps: []*security.Address{{Address: []byte{10, 2, 0, 0}, Length: 16}},
+						})
+					},
+				},
 			},
 		},
 	}
@@ -273,6 +313,58 @@ func workload_xdp_registerTailCall(t *testing.T, coll *ebpf.Collection) {
 	registerTailCall(t, coll, constants.XDPTailCallMap, constants.TailCallPoliciesCheck, "policies_check")
 	registerTailCall(t, coll, constants.XDPTailCallMap, constants.TailCallPolicyCheck, "policy_check")
 	registerTailCall(t, coll, constants.XDPTailCallMap, constants.TailCallAuthInUserSpace, "xdp_shutdown_in_userspace")
+}
+
+// setupXdpAuthzPolicy installs one policy with a single rule, clause and match for the
+// workload 10.1.0.15. It is used by the xdp_authz_offload tests that only vary the match.
+func setupXdpAuthzPolicy(t *testing.T, coll *ebpf.Collection, action security.Action, match *security.Match) {
+	setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+		BpfLogLevel:  constants.BPF_LOG_DEBUG,
+		AuthzOffload: constants.ENABLED,
+	})
+
+	workload_xdp_registerTailCall(t, coll)
+	workload_setMapsEnv(t, coll)
+	if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
+		Mode:        constants.DualEngineMode,
+		BpfFsPath:   constants.BpfFsPath,
+		Cgroup2Path: constants.Cgroup2Path,
+	}); err != nil {
+		t.Fatalf("NewBpfWorkload failed: %v", err)
+	} else if err := workload.DeserialInit(); err != nil {
+		t.Fatalf("DeserialInit failed: %v", err)
+	}
+
+	workloadProcessor := controllerWorkload.NewProcessor(bpf2go.KmeshCgroupSockWorkloadMaps{
+		KmWlpolicy: coll.Maps["km_wlpolicy"],
+		KmFrontend: coll.Maps["km_frontend"],
+	})
+	workloadbpf := workloadProcessor.GetBpfCache()
+	if err := workloadbpf.FrontendUpdate(&bpfcache.FrontendKey{
+		Ip: [16]byte{10, 1, 0, 15},
+	}, &bpfcache.FrontendValue{
+		UpstreamId: 0x01,
+	}); err != nil {
+		t.Fatalf("FrontendUpdate failed: %v", err)
+	}
+	if err := workloadbpf.WorkloadPolicyUpdate(&bpfcache.WorkloadPolicyKey{
+		WorklodId: 0x01,
+	}, &bpfcache.WorkloadPolicyValue{
+		PolicyIds: [4]uint32{1},
+	}); err != nil {
+		t.Fatalf("WorkloadPolicyUpdate failed: %v", err)
+	}
+
+	policy := &security.Authorization{
+		Name:   "bpfut_ip_policy",
+		Action: action,
+		Rules: []*security.Rule{
+			{Clauses: []*security.Clause{{Matches: []*security.Match{match}}}},
+		},
+	}
+	if err := maps.AuthorizationUpdate(1, policy); err != nil {
+		t.Fatalf("AuthorizationUpdate failed: %v", err)
+	}
 }
 
 // workload_setMapsEnv prepares the BPF testing environment by configuring a BPF workload
