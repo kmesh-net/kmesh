@@ -146,7 +146,7 @@ post '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
 post '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_version","arguments":{}}}'
 post '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"get_mesh_namespaces","arguments":{}}}'
 for _ in $(seq 1 60); do
-	grep -q '"id":4' "$TMP/sse.out" 2>/dev/null && break
+	grep -q '"id":3' "$TMP/sse.out" 2>/dev/null && grep -q '"id":4' "$TMP/sse.out" 2>/dev/null && break
 	sleep 0.5
 done
 

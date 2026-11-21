@@ -80,6 +80,14 @@ def is_error(result):
     return bool(result.get("isError"))
 
 
+def check_initialize(result, failures):
+    if not result.get("protocolVersion"):
+        failures.append("initialize: response has no protocolVersion")
+    server_info = result.get("serverInfo") or {}
+    if not server_info.get("name") or not server_info.get("version"):
+        failures.append(f"initialize: incomplete serverInfo: {result!r}")
+
+
 def check_tools_list(result, failures):
     tools = {tool.get("name") for tool in result.get("tools", [])}
     missing = EXPECTED_TOOLS - tools
@@ -88,6 +96,9 @@ def check_tools_list(result, failures):
         return
     if len(tools) != len(EXPECTED_TOOLS):
         failures.append(f"tools/list returned {len(tools)} tools, expected {len(EXPECTED_TOOLS)}")
+    for tool in result.get("tools", []):
+        if not isinstance(tool.get("inputSchema"), dict):
+            failures.append(f"tools/list: {tool.get('name')} has no inputSchema")
 
 
 def mode_from(result, failures):
@@ -117,7 +128,8 @@ def main():
         if 1 not in messages:
             failures.append("initialize: no response")
         else:
-            passed += 1  # initialize result shape is not asserted further
+            check_initialize(messages[1], failures)
+            passed += 1
         if 2 not in messages:
             failures.append("tools/list: no response")
         else:
@@ -131,6 +143,11 @@ def main():
             else:
                 passed += 1
     else:
+        if 0 not in messages:
+            failures.append("initialize: no response")
+        else:
+            check_initialize(messages[0], failures)
+            passed += 1
         if 1 not in messages:
             failures.append("tools/list: no response")
             mode = "dual-engine"

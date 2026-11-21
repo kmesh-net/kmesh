@@ -320,6 +320,7 @@ helm-push: helm-package
 ##@ MCP
 
 MCP_BIN ?= out/kmeshctl
+MCP_IMAGE ?= kmesh-mcp:latest
 
 .PHONY: mcp-server
 mcp-server:
@@ -332,3 +333,7 @@ mcp-test:
 .PHONY: mcp-smoke
 mcp-smoke:
 	hack/mcp-e2e-smoke.sh
+
+.PHONY: mcp-image
+mcp-image:
+	docker build -f build/docker/mcp.dockerfile -t $(MCP_IMAGE) .

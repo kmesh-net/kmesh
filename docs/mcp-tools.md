@@ -165,6 +165,17 @@ out/kmeshctl mcp serve                   # stdio transport (default)
 out/kmeshctl mcp serve --transport sse   # HTTP + SSE on localhost:8080
 ```
 
+The server can also run as a container. Mount a kubeconfig so it can reach
+the cluster:
+
+```bash
+make mcp-image
+docker run --rm -v ~/.kube/config:/kubeconfig \
+  -e KUBECONFIG=/kubeconfig kmesh-mcp:latest
+```
+
+Append `--transport sse -p 8080:8080` to expose the SSE endpoint instead.
+
 ### Claude Desktop
 
 Add the server under `mcpServers` in `claude_desktop_config.json`
@@ -191,7 +202,8 @@ Add the same entry to `~/.cursor/mcp.json` and restart Cursor.
 | --- | --- |
 | `make mcp-server` | build the kmeshctl binary used by the MCP server |
 | `make mcp-test` | run the MCP unit tests |
-| `make mcp-smoke` | run the end-to-end smoke test (needs a cluster with Kmesh) |
+| `make mcp-smoke` | run the end-to-end smoke test (needs a cluster with Kmesh); also runs in the scheduled `MCP Smoke Test` workflow |
+| `make mcp-image` | build the `kmesh-mcp:latest` container image |
 
 ## Notes
 
