@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sync"
 	"syscall"
 	"testing"
 	"unsafe"
@@ -1979,6 +1980,40 @@ func TestRbac_doRbac(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRbacConcurrentPolicyUpdate(t *testing.T) {
+	rbac := NewRbac(nil)
+	policy := &security.Authorization{
+		Name:      "policy",
+		Namespace: "default",
+		Scope:     security.Scope_WORKLOAD_SELECTOR,
+	}
+	workload := &workloadapi.Workload{
+		Namespace:             "default",
+		AuthorizationPolicies: []string{policy.ResourceName()},
+	}
+
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < 1000; i++ {
+			assert.NoError(t, rbac.UpdatePolicy(policy))
+			rbac.RemovePolicy(policy.ResourceName())
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		for i := 0; i < 1000; i++ {
+			rbac.aggregate(workload)
+		}
+	}()
+	close(start)
+	wg.Wait()
 }
 
 func Test_handleAuthorizationTypeResponse(t *testing.T) {
