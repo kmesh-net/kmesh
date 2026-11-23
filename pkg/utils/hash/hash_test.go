@@ -131,19 +131,38 @@ func TestHash128_DifferentInputs(t *testing.T) {
 }
 
 func TestHash128_AllTailLengths(t *testing.T) {
-	// Test all tail lengths from 0 to 15 bytes
 	seed := uint32(0)
-	baseData := []byte("0123456789abcdef") // 16 bytes base
+	baseData := []byte("0123456789abcdef")
+	tailData := []byte("extra tail bytes")
+	expected := []struct {
+		h1 uint64
+		h2 uint64
+	}{
+		{5467490433528156583, 9782763267945859290},
+		{7365496233626374817, 4509812671008863076},
+		{12573662846152529695, 7461964302156406396},
+		{9835107160104111132, 10470535468262275298},
+		{361946897411615576, 17996517921075712664},
+		{16846892524183029451, 13280208045458370287},
+		{4578864950277010102, 12632592208615550477},
+		{14800598385962173449, 5191467188622709264},
+		{17098945199622310944, 7563156776339729347},
+		{156324995665638904, 17134821293174869613},
+		{12380062088919656819, 16542457023974195919},
+		{1082955700493610954, 6369146761905933195},
+		{14036760400416503843, 5952865372487413191},
+		{11535319495064235047, 7524327669449282404},
+		{14149555822753749515, 10930268772313463049},
+		{8065951757315601820, 11099135757563705731},
+	}
 
-	for tailLen := 0; tailLen <= 15; tailLen++ {
-		data := append(baseData, []byte("extra tail bytes")[:tailLen]...)
+	for tailLen, want := range expected {
+		data := append(append([]byte{}, baseData...), tailData[:tailLen]...)
 		h1, h2 := Hash128(data, seed)
 
-		// This check is a sanity check to catch a hash function that is broken
-		// (e.g., always returning zero).  It is not a strict correctness check,
-		// as a valid hash function could theoretically return (0, 0) for some input.
-		if h1 == 0 && h2 == 0 && len(data) > 0 {
-			t.Errorf("Hash128 with tail length %d produced zero hash for non-empty input", tailLen)
+		if h1 != want.h1 || h2 != want.h2 {
+			t.Errorf("Hash128 with tail length %d = (%d, %d), want (%d, %d)",
+				tailLen, h1, h2, want.h1, want.h2)
 		}
 	}
 }
@@ -229,6 +248,11 @@ func Test_fmix64(t *testing.T) {
 			name:     "test value 2",
 			input:    0xfedcba9876543210,
 			expected: 0x03ebebcc1f4a6fd7,
+		},
+		{
+			name:     "test value 3",
+			input:    0x123456789abcdef0,
+			expected: 0x18b8c062f6f42398,
 		},
 	}
 
