@@ -235,6 +235,9 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 			retry.UntilOrFail(t, func() bool {
 				return slices.EqualUnordered(tc.expected, dnsResolver.dnsResolver.GetAllCachedDomains())
 			}, retry.Timeout(1*time.Second))
+			for _, domain := range tc.expected {
+				assert.NotNil(t, dnsResolver.getClustersByDomain(domain))
+			}
 		})
 	}
 }
