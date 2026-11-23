@@ -20,7 +20,7 @@ Let's start from setting up the required environment. You can follow the steps b
 
     You can take reference from the [istio official document](https://istio.io/latest/docs/setup/platform-setup/kind/).
 
-    If you want to specified multiple workers or node image, you can:
+    If you want to specify multiple workers or node image, you can:
 
     ```shell
     kind create cluster --image=kindest/node:v1.23.17 --config=- <<EOF
