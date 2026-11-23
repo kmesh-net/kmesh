@@ -221,6 +221,10 @@ func CmdAdd(args *skel.CmdArgs) error {
 		log.Errorf("failed to annotate kmesh redirection, err is %v", err)
 	}
 
+	if err := utils.PatchKmeshManagedLabel(client, pod); err != nil {
+		log.Errorf("failed to label kmesh managed, err is %v", err)
+	}
+
 	if cniConf.Mode == constants.DualEngineMode {
 		enableXDPFunc := func(netns.NetNS) error {
 			if err := enableXdpAuth(args.IfName); err != nil {
