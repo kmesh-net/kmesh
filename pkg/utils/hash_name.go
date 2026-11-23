@@ -21,6 +21,7 @@ import (
 	"hash"
 	"hash/fnv"
 	"os"
+	"sync"
 
 	"sigs.k8s.io/yaml"
 )
@@ -29,8 +30,11 @@ const (
 	persistPath = "/mnt/hash_name.yaml"
 )
 
-// HashName converts a string to a uint32 integer as the key of bpf map
+// HashName converts a string to a uint32 integer as the key of bpf map.
+// It is safe for concurrent use: entries are written by the workload
+// processor and read by status-server dumps.
 type HashName struct {
+	mu       sync.RWMutex
 	numToStr map[uint32]string
 	strToNum map[string]uint32
 	hash     hash.Hash32
@@ -90,6 +94,9 @@ func (h *HashName) flushDelta(str string, num uint32) error {
 }
 
 func (h *HashName) Hash(str string) uint32 {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	var num uint32
 
 	if num, exists := h.strToNum[str]; exists {
@@ -119,18 +126,33 @@ func (h *HashName) Hash(str string) uint32 {
 }
 
 func (h *HashName) NumToStr(num uint32) string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	return h.numToStr[num]
 }
 
 func (h *HashName) StrToNum(str string) uint32 {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
 	return h.strToNum[str]
 }
 
+// GetStrToNum returns a snapshot copy, safe for the caller to iterate while
+// the workload processor keeps writing.
 func (h *HashName) GetStrToNum() map[string]uint32 {
-	return h.strToNum
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := make(map[string]uint32, len(h.strToNum))
+	for str, num := range h.strToNum {
+		out[str] = num
+	}
+	return out
 }
 
 func (h *HashName) Delete(str string) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	// only when the num exists, we do the logic
 	if num, exists := h.strToNum[str]; exists {
 		delete(h.numToStr, num)
