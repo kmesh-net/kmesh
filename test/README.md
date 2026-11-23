@@ -1,171 +1,171 @@
-# Kmesh测试框架介绍
+# Introduction to Kmesh Test Framework
 
-## 什么是mugen
+## What is Mugen
 
-mugen是openEuler社区开放的测试框架，提供公共配置和方法以便社区开发者进行测试代码的编写和执行；Kmesh基于mugen实现了自己的测试框架，以看护Kmesh基本功能稳定。
+Mugen is a testing framework open-sourced by the openEuler community. It provides public configurations and methods for community developers to write and execute test code. Kmesh has implemented its own testing framework based on Mugen to ensure the stability of basic Kmesh functions.
 
-关于mugen的详细介绍请参考：
+For a detailed introduction to Mugen, please refer to:
 
 <https://gitee.com/openeuler/mugen>
 
-## Kmesh测试框架简介
+## Introduction to Kmesh Test Framework
 
-Kmesh基于mugen实现了测试框架，主要用于开发阶段，对Kmesh的基本功能做基本保障，确保合入的代码不会对Kmesh的主体功能产生破坏；测试框架代码在`test`目录下，关键文件/目录说明：
+Kmesh implements a testing framework based on Mugen. It is primarily used during the development phase to ensure the basic functionality of Kmesh and prevent merged code from breaking core features. The testing framework code is located in the `test` directory. Description of key files/directories:
 
 ```sh
-├─runtest.sh # 测试框架执行脚本
+├─runtest.sh # Test framework execution script
 │
-├─testcases  # 测试套
-│  │  kmesh.json # 指定要执行kmesh下的哪些测试例，需要与测试例目录名称一致
+├─testcases  # Test suites
+│  │  kmesh.json # Specifies which test cases under kmesh to execute; must match the test case directory name
 │  │
 │  └─kmesh
-│      ├─libs # 基础库
-│      │      common.sh  # 基础库脚本，测试例中引用
-│      ├─oe_test_base_function # 一个测试例一个文件夹
-│      │  │  oe_test_base_function.sh # 测试脚本
+│      ├─libs # Basic library
+│      │      common.sh  # Basic library script, referenced in test cases
+│      ├─oe_test_base_function # One folder per test case
+│      │  │  oe_test_base_function.sh # Test script
 │      │  │
-│      │  └─conf # 配置文件
-│      │          test_conf.json # 该测试例对应的xds治理模型
+│      │  └─conf # Configuration files
+│      │          test_conf.json # The xds governance model corresponding to this test case
 │      │
-│      └─pkg # 测试依赖的外部工具归档
+│      └─pkg # Archive of external tools required for testing
 │              fortio-1.38.1-1.x86_64.rpm
 │
-└─testframe  # 测试框架包
+└─testframe  # Test framework package
         mugen-master.zip
 ```
 
-## 如何进行Kmesh测试
+## How to Run Kmesh Tests
 
-- 测试前准备工作
+- Pre-test preparation
 
-  - 准备一套linux开发环境（如：openEuler 2203 LTS）
+  - Prepare a Linux development environment (e.g., openEuler 2203 LTS)
 
-  - 替换包含Kmesh增强patch的kernel系列包（kernel.rpm、kernel-devel.rpm、kernel-header.rpm）
+  - Replace the kernel series packages containing the Kmesh enhancement patch (kernel.rpm, kernel-devel.rpm, kernel-header.rpm)
 
-    - 如何构建包含Kmesh增强patch的kernel系列包参见：xxx
+    - For instructions on how to build kernel series packages containing the Kmesh enhancement patch, please refer to: [Kmesh Kernel Compile Guide](../docs/en/kmesh_kernel_compile.md)
 
-  - 下载Kmesh代码
+  - Download Kmesh code
 
     ```sh
     # git clone https://github.com/kmesh-net/kmesh.git
     ```
 
-- 执行Kmesh测试框架
+- Execute the Kmesh testing framework
 
   ```sh
   [root@dev Kmesh]# cd test/
   [root@dev test]# ./runtest.sh {env_ip} {login_password}
-  # runtest的主要步骤：
-  # 1 执行安装依赖
-  # 2 编译Kmesh代码 + Kmesh.ko，并安装
-  # 3 挨个执行测试套中的每个测试例
-  # 4 输出测试执行结果，如下
-  Tue Oct 25 19:29:50 2022 - INFO  - 配置文件加载完成...
-  Tue Oct 25 19:29:51 2022 - INFO  - start to run testcase:oe_test_normal_function.
-  Tue Oct 25 19:29:59 2022 - INFO  - The case exit by code 0.
-  Tue Oct 25 19:29:59 2022 - INFO  - End to run testcase:oe_test_normal_function.
-  Tue Oct 25 19:29:59 2022 - INFO  - A total of 1 use cases were executed, with 1 successes and 0 failures.
-  the following test cases run successful
+  # Main steps of runtest:
+  # 1 Execute dependency installation
+  # 2 Compile Kmesh code and Kmesh.ko, and install
+  # 3 Execute each test case in the test suite one by one
+  # 4 Output the test execution results, as follows
+  Tue Oct 25 19:29:50 2022 - INFO  - Configuration file loaded successfully...
+  Tue Oct 25 19:29:51 2022 - INFO  - start to run testcase:oe_test_base_function.
+  Tue Oct 25 19:29:59 2022 - INFO  - The case exit by code 0.
+  Tue Oct 25 19:29:59 2022 - INFO  - End to run testcase:oe_test_base_function.
+  Tue Oct 25 19:29:59 2022 - INFO  - A total of 1 use cases were executed, with 1 successes and 0 failures.
+  The following test cases run success
   --------------------------------------->
-  oe_test_normal_function
+  oe_test_base_function
   <---------------------------------------
   [root@localhost test]#
   ```
 
-  test结果中可以看到成功失败的用例数。
+  You can see the number of successful and failed test cases in the test results.
   
-- 也可以执行单条测试用例  
+- You can also execute a single test case  
 
  ```sh
   [root@dev test]# ./runtest.sh {env_ip} {login_password} {testcase_name}
   ```
 
-- 如何查看测试过程信息
+- How to view test process information
 
-  - 测试过程中的临时文件查看
+  - View temporary files during the test process
 
-    测试脚本中，可能会写一些临时文件，并根据临时文件信息做测试结果校验，tmp文件是按测试例粒度归档的；
+    The test script may write some temporary files and verify the test results based on them. These temporary files are archived at the test case level.
 
     ```sh
-    # 以kmesh的oe_test_normal_function测试例为例，tmp文件目录：
-    [root@localhost test]# ./mugen-master/testcases/smoke-test/kmesh/oe_test_normal_function/
+    # Taking the oe_test_base_function test case of Kmesh as an example, the temporary file directory is:
+    [root@localhost test]# ./mugen-master/testcases/smoke-test/kmesh/oe_test_base_function/
     ```
 
-  - 如何检查具体失败信息
+  - How to check specific failure information
 
-    根据测试结果的失败用例名，找到失败用例的执行日志：
+    Based on the failed test case name in the test results, find the execution log of the failed test case:
 
     ```sh
-    # 1 以kmesh的oe_test_normal_function测试例为例
-    [root@localhost test]# cd mugen-master/logs/kmesh/oe_test_normal_function/
-    [root@localhost oe_test_normal_function]# ll
+    # 1 Taking the oe_test_base_function test case of Kmesh as an example
+    [root@localhost test]# cd mugen-master/logs/kmesh/oe_test_base_function/
+    [root@localhost oe_test_base_function]# ll
     total 12K
     -rw-r--r--. 1 root root 9.0K Oct 25 19:29 2022-10-25-19:29:51.log
-    [root@localhost oe_test_normal_function]#
-    # 2 log日志中搜索 CHECK_RESULT，找到 actual_result与expect_result不一致的校验项就是出问题的点
+    [root@localhost oe_test_base_function]#
+    # 2 Search for CHECK_RESULT in the log file. The verification item where actual_result is inconsistent with expect_result is the point of failure.
     + CHECK_RESULT 0 0 0 'insmod kmesh.ko failed'
     + actual_result=0
     + expect_result=0
     + mode=0
     ```
 
-## 测试框架基础库介绍
+## Introduction to Test Framework Basic Library
 
-libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增测试例的开发；基础库包含的API列表如下：
+The `libs` directory encapsulates common operations during the Kmesh test process to simplify the development of new test cases. The list of APIs included in the basic library is as follows:
 
 - start_fortio_server
 
-  - 功能说明
+  - Function description
 
-    启动fortio server测试程序；
+    Start the Fortio server test program.
 
-  - 参数说明
+  - Parameter description
 
-    和fortio server的命令一致。
+    Consistent with the Fortio server commands.
 
-    但是需要注意的是：这里如果要修改端口或IP地址，必须按照ip:port的完整格式传入。
+    However, it should be noted that if you want to modify the port or IP address here, it must be passed in the complete format of IP:port.
 
-  - 调用样例
+  - Call example
 
     ```sh
-    # 启动默认fortio_server
+    # Start the default fortio_server
     start_fortio_server
     
-    # 启动指定ip:port的fortio_server
+    # Start the fortio_server with specified ip:port
     start_fortio_server -http-port 192.168.100.19:8081
     
-    #启动指定ip:port并指定参数在报头中传递
+    # Start the specified ip:port and specify parameters to be passed in the header
     start_fortio_server -http-port 192.168.100.19:8081 -echo-server-default-params="server:1"
     ```
 
 - start_kmesh
 
-  - 功能说明
+  - Function description
 
-    按本地模式启动Kmesh，该模式无需环境部署k8s/istio；
+    Start Kmesh in local mode. This mode does not require deploying Kubernetes or Istio in the environment.
 
-  - 参数说明
+  - Parameter description
 
-    NA
+    N/A
 
-  - 调用样例
+  - Call example
 
     ```sh
-    # 按本地模式启动Kmesh
+    # Start Kmesh in local mode
     start_kmesh
     ```
 
 - load_kmesh_config
 
-  - 功能说明
+  - Function description
 
-    加载xds配置文件；默认按测试例下的conf加载
+    Load the xds configuration file. By default, it is loaded according to the conf directory under the test case.
 
-  - 参数说明
+  - Parameter description
 
-    NA
+    N/A
 
-  - 调用样例
+  - Call example
 
     ```sh
     load_kmesh_config
@@ -173,34 +173,39 @@ libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增�
 
 - cleanup
 
-  - 功能说明
+  - Function description
 
-    测试清理；
+    Test cleanup.
 
-  - 参数说明
+  - Parameter description
 
-    NA
+    N/A
 
-  - 调用样例
+  - Call example
 
     ```sh
     cleanup
     ```
 
-## 如何新增测试用例
+## How to Add New Test Cases
 
-- 新增测试例目录
+- Add a test case directory
 
   ```sh
   [root@dev kmesh]# pwd
   /home/Kmesh/test/testcases/kmesh
   [root@dev kmesh]# tree oe_test_lb_policy_function/
-  oe_test_lb_policy_function/ # 1 新增测试例文件夹
+  oe_test_lb_policy_function/ # 1 Add test case folder
   ├── conf 
-  │   └── test_conf.json # 2 配套的xds配置文件
-  └── oe_test_lb_policy_function.sh # 3 定义测试脚本
+  │   └── test_conf.json # 2 Corresponding xds configuration file
+  └── oe_test_lb_policy_function.sh # 3 Define test script
   
   1 directory, 2 files
+  ```
+
+- Add the new test case entry to the `cases` array.
+
+  ```sh
   [root@dev testcases]# pwd
   /home/Kmesh/test/testcases
   [root@dev testcases]# vim kmesh.json
@@ -211,7 +216,7 @@ libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增�
               "name": "oe_test_base_function"
           },
           {
-              "name": "oe_test_lb_policy" # 增加测试例到测试套中
+              "name": "oe_test_lb_policy_function"
           }
       ]
   }
