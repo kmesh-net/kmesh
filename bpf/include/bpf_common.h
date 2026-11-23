@@ -55,6 +55,8 @@ struct sock_storage_data {
     bool has_set_ip;
     // original dst info
     struct bpf_sock_tuple sk_tuple;
+    // record connection failure reasons
+    __u32 response_flags;
 };
 
 struct {
