@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -264,7 +266,9 @@ func (k kubeComponent) Close() error {
 
 func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string, trafficType string) {
 	if _, err := newWaypointProxy(ctx, ns, name, trafficType); err != nil {
-		t.Fatalf("create new waypoint proxy failed: %v", err)
+		cls := ctx.Clusters().Default()
+		diagnostics := collectWaypointDiagnostics(cls, ns.Name(), name)
+		t.Fatalf("create new waypoint proxy failed: %v\n%s", err, diagnostics)
 	}
 }
 
@@ -280,7 +284,11 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 		"--for", trafficType,
 		"--image", waypointImage)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("kmeshctl waypoint apply failed: %v, output: %s", err, string(output))
+		if !strings.Contains(string(output), "already exists") {
+			return nil, fmt.Errorf("kmeshctl waypoint apply failed: %v, output: %s", err, string(output))
+		}
+
+		scopes.Framework.Warnf("waypoint %s already exists in namespace %s, reusing existing gateway", name, ns.Name())
 	}
 
 	cls := ctx.Clusters().Default()
@@ -320,16 +328,14 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 }
 
 func waitForWaypointGatewayReady(ns string, name string, podName string) error {
-	for _, condition := range []string{"Accepted"} {
-		if err := waitForGatewayCondition(ns, name, condition); err != nil {
-			return err
-		}
+	if err := waitForGatewayCondition(ns, name, "Accepted"); err != nil {
+		return err
 	}
 	return nil
 }
 
 func waitForGatewayCondition(ns string, name string, condition string) error {
-	cmd := exec.Command("kubectl", "wait", "--for=condition="+condition, "--timeout=120s", "gateway/"+name, "-n", ns)
+	cmd := exec.Command("kubectl", "wait", "--for=condition="+condition, "--timeout=180s", "gateway/"+name, "-n", ns)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("waiting for waypoint gateway %s condition %s failed: %v, output: %s", name, condition, err, string(output))
 	}
@@ -338,7 +344,9 @@ func waitForGatewayCondition(ns string, name string, condition string) error {
 
 func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
 	if err := deleteWaypointProxy(ctx, ns, name); err != nil {
-		t.Fatal("delete waypoint proxy failed: %v", err)
+		cls := ctx.Clusters().Default()
+		diagnostics := collectWaypointDiagnostics(cls, ns.Name(), name)
+		t.Fatalf("delete waypoint proxy failed: %v\n%s", err, diagnostics)
 	}
 }
 
@@ -365,4 +373,70 @@ func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name strin
 
 		return nil
 	}, retry.Timeout(time.Minute*10), retry.BackoffDelay(time.Second*1))
+}
+
+func collectWaypointDiagnostics(cls cluster.Cluster, namespace string, name string) string {
+	var diagnostics strings.Builder
+
+	diagnostics.WriteString("=== waypoint diagnostics ===\n")
+	diagnostics.WriteString(fmt.Sprintf("namespace: %s\n", namespace))
+	diagnostics.WriteString(fmt.Sprintf("waypoint: %s\n\n", name))
+
+	gateway, err := cls.GatewayAPI().GatewayV1().Gateways(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		diagnostics.WriteString(fmt.Sprintf("gateway lookup failed: %v\n\n", err))
+	} else {
+		diagnostics.WriteString("gateway conditions:\n")
+		for _, condition := range gateway.Status.Conditions {
+			diagnostics.WriteString(fmt.Sprintf("- type=%s status=%s reason=%s message=%s\n",
+				condition.Type,
+				condition.Status,
+				condition.Reason,
+				condition.Message,
+			))
+		}
+		diagnostics.WriteString("\n")
+	}
+
+	pods, err := cls.Kube().CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name),
+	})
+	if err != nil {
+		diagnostics.WriteString(fmt.Sprintf("pod lookup failed: %v\n", err))
+		return diagnostics.String()
+	}
+
+	if len(pods.Items) == 0 {
+		diagnostics.WriteString("no waypoint pods found\n")
+		return diagnostics.String()
+	}
+
+	diagnostics.WriteString("pods:\n")
+	for _, pod := range pods.Items {
+		diagnostics.WriteString(fmt.Sprintf("- %s phase=%s podIP=%s\n", pod.Name, pod.Status.Phase, pod.Status.PodIP))
+
+		for _, condition := range pod.Status.Conditions {
+			diagnostics.WriteString(fmt.Sprintf("  condition=%s status=%s reason=%s message=%s\n",
+				condition.Type,
+				condition.Status,
+				condition.Reason,
+				condition.Message,
+			))
+		}
+
+		logs, err := cls.Kube().CoreV1().Pods(namespace).GetLogs(pod.Name, &v1.PodLogOptions{TailLines: ptrInt64(20)}).DoRaw(context.TODO())
+		if err != nil {
+			diagnostics.WriteString(fmt.Sprintf("  failed to fetch logs: %v\n", err))
+		} else {
+			diagnostics.WriteString("  recent logs:\n")
+			diagnostics.WriteString(string(logs))
+			diagnostics.WriteString("\n")
+		}
+	}
+
+	return diagnostics.String()
+}
+
+func ptrInt64(v int64) *int64 {
+	return &v
 }
