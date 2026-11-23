@@ -45,11 +45,11 @@ import (
 
 func createKubeConfig(serviceAccountPath string) (string, error) {
 	k8sServiceHost := os.Getenv("KUBERNETES_SERVICE_HOST")
-	if len(k8sServiceHost) == 0 {
+	if k8sServiceHost == "" {
 		return "", fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
 	}
 	k8sServicePort := os.Getenv("KUBERNETES_SERVICE_PORT")
-	if len(k8sServicePort) == 0 {
+	if k8sServicePort == "" {
 		return "", fmt.Errorf("KUBERNETES_SERVICE_PORT not set. Is this not running within a pod?")
 	}
 

@@ -435,7 +435,7 @@ func internalMatchPrincipal(srcId string, principals []*security.StringMatch) bo
 		} else if len(principal.GetExact()) > 0 {
 			m = srcId == principal.GetExact()
 		} else {
-			m = len(srcId) == 0
+			m = srcId == ""
 		}
 		if m {
 			return true
@@ -454,7 +454,7 @@ func internalMatchNamespace(srcNs string, namespaces []*security.StringMatch) bo
 		} else if len(ns.GetExact()) > 0 {
 			m = srcNs == ns.GetExact()
 		} else {
-			m = len(srcNs) == 0
+			m = srcNs == ""
 		}
 		if m {
 			return true
