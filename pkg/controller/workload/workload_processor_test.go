@@ -851,3 +851,119 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 
 	hashNameClean(p)
 }
+
+func TestLocalityLBPriorityRecalculationAfterLocalityInitialization(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// No local workload has been processed yet.
+	assert.Nil(t, p.locality.LocalityInfo)
+
+	res := &service_discovery_v3.DeltaDiscoveryResponse{}
+
+	// Create a service using locality load balancing.
+	localityLBScope := []workloadapi.LoadBalancing_Scope{
+		workloadapi.LoadBalancing_REGION,
+		workloadapi.LoadBalancing_ZONE,
+		workloadapi.LoadBalancing_SUBZONE,
+	}
+	localityLoadBalancing := createLoadBalancing(
+		workloadapi.LoadBalancing_FAILOVER,
+		localityLBScope,
+	)
+	svc := common.CreateFakeService(
+		"svc1",
+		"10.240.10.1",
+		"10.240.10.200",
+		localityLoadBalancing,
+	)
+
+	res.Resources = append(res.Resources, &service_discovery_v3.Resource{
+		Resource: protoconv.MessageToAny(serviceToAddress(svc)),
+	})
+
+	// Process a remote workload before locality information is initialized.
+	wl := createWorkload(
+		"waypoint1",
+		"10.244.0.1",
+		"other-node",
+		workloadapi.NetworkMode_STANDARD,
+		createLocality("r1", "z1", "s1"),
+		"svc1",
+	)
+
+	res.Resources = append(res.Resources, &service_discovery_v3.Resource{
+		Resource: protoconv.MessageToAny(workloadToAddress(wl)),
+	})
+
+	err := p.handleAddressTypeResponse(res)
+	assert.NoError(t, err)
+
+	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
+	svcID := checkFrontEndMap(t, svc.Addresses[0].Address, p)
+
+	// The endpoint is initially inserted with priority 0 because locality
+	// information is unavailable.
+	oldKey := bpfcache.EndpointKey{
+		ServiceId:    svcID,
+		Prio:         0,
+		BackendIndex: 1,
+	}
+
+	var oldValue bpfcache.EndpointValue
+	err = p.bpf.EndpointLookup(&oldKey, &oldValue)
+	assert.NoError(t, err)
+	assert.Equal(t, workloadID, oldValue.BackendUid)
+
+	// Process the first local workload to initialize locality information.
+	localRes := &service_discovery_v3.DeltaDiscoveryResponse{}
+
+	localWorkload := createWorkload(
+		"local-wl",
+		"10.244.0.2",
+		os.Getenv("NODE_NAME"),
+		workloadapi.NetworkMode_STANDARD,
+		createLocality("r2", "z2", "s2"),
+		"svc1",
+	)
+
+	localRes.Resources = append(localRes.Resources, &service_discovery_v3.Resource{
+		Resource: protoconv.MessageToAny(workloadToAddress(localWorkload)),
+	})
+
+	err = p.handleAddressTypeResponse(localRes)
+	assert.NoError(t, err)
+
+	expectedPrio := p.locality.CalcLocalityLBPrio(
+		wl,
+		localityLBScope,
+	)
+
+	// The remote workload should no longer remain in the priority-0 bucket.
+	err = p.bpf.EndpointLookup(&oldKey, &oldValue)
+	assert.NoError(t, err)
+	assert.NotEqual(
+		t,
+		workloadID,
+		oldValue.BackendUid,
+		"remote workload should no longer remain at priority 0",
+	)
+
+	// The remote workload should now exist at its locality-derived priority.
+	newKey := bpfcache.EndpointKey{
+		ServiceId:    svcID,
+		Prio:         expectedPrio,
+		BackendIndex: 1,
+	}
+
+	var newValue bpfcache.EndpointValue
+	err = p.bpf.EndpointLookup(&newKey, &newValue)
+	assert.NoError(t, err)
+	assert.Equal(t, workloadID, newValue.BackendUid)
+
+	checkServiceMap(t, p, svcID, svc, 0, 1)
+
+	hashNameClean(p)
+}
