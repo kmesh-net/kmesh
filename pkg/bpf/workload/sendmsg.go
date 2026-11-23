@@ -45,6 +45,7 @@ func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj 
 	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
 	sm.Info.Cgroup2Path = cfg.Cgroup2Path
+	sm.Info.VerifierLogLevel = cfg.BpfVerifierLogLevel
 	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
 	if err := os.MkdirAll(sm.Info.MapPath,
@@ -70,6 +71,7 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = sm.Info.MapPath
+	opts.Programs = utils.ProgramOptionsForVerifierLog(sm.Info.VerifierLogLevel)
 	if helper.KernelVersionLowerThan5_13() {
 		spec, err = bpf2go.LoadKmeshSendmsgCompat()
 	} else {
@@ -82,6 +84,11 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
 		return nil, err
+	}
+
+	if sm.Info.VerifierLogLevel != 0 {
+		progs := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
+		utils.LogVerifierOutput(&progs, log.Infof)
 	}
 
 	// bpflink for sk_msg is supported in kernel 6.13, so we update sendmsg manually here
