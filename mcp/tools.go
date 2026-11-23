@@ -361,15 +361,51 @@ func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallTool
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	endpoint := "debug/loggers"
 	if loggerName != "" {
-		endpoint = "debug/loggers?name=" + url.QueryEscape(loggerName)
+		raw, err := h.fetchFromDaemon(ctx, podName, namespace, "debug/loggers?name="+url.QueryEscape(loggerName))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		return mcp.NewToolResultText(string(raw)), nil
 	}
-	raw, err := h.fetchFromDaemon(ctx, podName, namespace, endpoint)
+
+	// The daemon only returns module names for the bare endpoint; each level
+	// must be queried by name.
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "debug/loggers")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	return mcp.NewToolResultText(string(raw)), nil
+	var names []string
+	if err := json.Unmarshal(raw, &names); err != nil || len(names) == 0 {
+		return mcp.NewToolResultText(string(raw)), nil
+	}
+
+	type moduleLevel struct {
+		Name  string `json:"name"`
+		Level string `json:"level,omitempty"`
+		Error string `json:"error,omitempty"`
+	}
+	out := struct {
+		Count   int           `json:"count"`
+		Loggers []moduleLevel `json:"loggers"`
+	}{Count: len(names), Loggers: make([]moduleLevel, 0, len(names))}
+	for _, name := range names {
+		rawInfo, err := h.fetchFromDaemon(ctx, podName, namespace, "debug/loggers?name="+url.QueryEscape(name))
+		if err != nil {
+			out.Loggers = append(out.Loggers, moduleLevel{Name: name, Error: err.Error()})
+			continue
+		}
+		var info moduleLevel
+		if err := json.Unmarshal(rawInfo, &info); err != nil {
+			out.Loggers = append(out.Loggers, moduleLevel{Name: name, Error: "unexpected response from daemon"})
+			continue
+		}
+		if info.Name == "" {
+			info.Name = name
+		}
+		out.Loggers = append(out.Loggers, info)
+	}
+	return marshalToolJSON(out)
 }
 
 func (h *McpHandler) HandleListDaemonPods(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {

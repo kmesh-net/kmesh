@@ -57,7 +57,7 @@ func RegisterToolsAndServe(ctx context.Context, cliClient kube.CLIClient, transp
 	mcpServer.AddTool(toolVersion, handler.HandleGetVersion)
 
 	toolConfigDump := mcp.NewTool("config_dump",
-		mcp.WithDescription("Retrieves Istio xDS dynamic listeners, clusters, and routes from a Kmesh daemon pod. Use list_daemon_pods to discover pod names. Returns a compact summary by default; use filter to fetch full details of specific resources."),
+		mcp.WithDescription("Retrieves the routing configuration from a Kmesh daemon pod: xDS listeners, clusters and routes in kernel-native mode, or the workload, service and policy cache in dual-engine mode. Use list_daemon_pods to discover pod names. Returns a compact summary by default; use filter to fetch full details of specific resources."),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
 		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
 		mcp.WithString("mode", mcp.Description("Operating mode (kernel-native or dual-engine, auto-detected if empty)")),
@@ -67,7 +67,7 @@ func RegisterToolsAndServe(ctx context.Context, cliClient kube.CLIClient, transp
 	mcpServer.AddTool(toolConfigDump, handler.HandleConfigDump)
 
 	toolListWaypoints := mcp.NewTool("list_waypoints",
-		mcp.WithDescription("Lists active Waypoint proxies in the cluster using Gateway API. Use get_waypoint_status to inspect a specific waypoint."),
+		mcp.WithDescription("Lists Waypoint proxies in a namespace (default: default), or across all namespaces when allNamespaces is true. Use get_waypoint_status to inspect a specific waypoint."),
 		mcp.WithString("namespace", mcp.Description("Target namespace (default: default)")),
 		mcp.WithBoolean("allNamespaces", mcp.Description("List across all namespaces")),
 	)
@@ -109,9 +109,48 @@ func RegisterToolsAndServe(ctx context.Context, cliClient kube.CLIClient, transp
 	mcpServer.AddTool(toolListDaemonPods, handler.HandleListDaemonPods)
 
 	toolMeshNamespaces := mcp.NewTool("get_mesh_namespaces",
-		mcp.WithDescription("Filters and lists Kubernetes namespaces that have the istio.io/dataplane-mode=Kmesh label enrolled in the service mesh."),
+		mcp.WithDescription("Filters and lists namespaces enrolled in the mesh via the istio.io/dataplane-mode label (matched case-insensitively)."),
 	)
 	mcpServer.AddTool(toolMeshNamespaces, handler.HandleGetMeshNamespaces)
+
+	toolIpsecStatus := mcp.NewTool("get_ipsec_status",
+		mcp.WithDescription("Reports whether IPsec traffic encryption is configured (reads the kmesh-ipsec secret; key material is never exposed)."),
+		mcp.WithString("namespace", mcp.Description("Namespace of the Kmesh installation (default: kmesh-system)")),
+	)
+	mcpServer.AddTool(toolIpsecStatus, handler.HandleGetIpsecStatus)
+
+	toolMeshServices := mcp.NewTool("list_mesh_services",
+		mcp.WithDescription("Lists Kubernetes services in mesh-enrolled namespaces with cluster IPs, ports and selectors. Use get_mesh_namespaces to see enrolled namespaces."),
+		mcp.WithString("namespace", mcp.Description("List services in this namespace only (default: all mesh namespaces)")),
+	)
+	mcpServer.AddTool(toolMeshServices, handler.HandleListMeshServices)
+
+	toolBpfWorkload := mcp.NewTool("get_bpf_workload_details",
+		mcp.WithDescription("Deep-dive into dual-engine (workload) eBPF map state: frontends, backends, endpoints and services. Returns a compact summary by default; use filter to fetch full entries."),
+		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
+		mcp.WithBoolean("summary", mcp.Description("Return counts and compact identities instead of the full dump (default: true)")),
+		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against entry field values; matching entries are returned in full")),
+	)
+	mcpServer.AddTool(toolBpfWorkload, handler.HandleBpfWorkloadDetails)
+
+	toolBpfAds := mcp.NewTool("get_bpf_ads_details",
+		mcp.WithDescription("Deep-dive into kernel-native (ADS) eBPF map state: clusters, listeners and routes. Returns a compact summary by default; use filter to fetch full entries."),
+		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
+		mcp.WithBoolean("summary", mcp.Description("Return counts and compact identities instead of the full dump (default: true)")),
+		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against entry field values; matching entries are returned in full")),
+	)
+	mcpServer.AddTool(toolBpfAds, handler.HandleBpfAdsDetails)
+
+	toolDiagnose := mcp.NewTool("diagnose_connectivity",
+		mcp.WithDescription("Diagnoses why traffic from source to target may fail (e.g. 'why can sleep not reach productpage'). Resolves workloads/services and checks BPF wiring, waypoint routing, authorization policies and namespace enrollment. Returns a verdict with next-step hints."),
+		mcp.WithString("source", mcp.Required(), mcp.Description("Source pod name, workload name, or IP")),
+		mcp.WithString("target", mcp.Required(), mcp.Description("Target service name, hostname, VIP, or workload name/IP")),
+		mcp.WithString("namespace", mcp.Description("Default namespace for unqualified names")),
+		mcp.WithString("podName", mcp.Description("Daemon pod to query (auto-discovered if empty)")),
+	)
+	mcpServer.AddTool(toolDiagnose, handler.HandleDiagnoseConnectivity)
 
 	switch transport {
 	case "sse":

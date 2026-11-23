@@ -316,3 +316,24 @@ helm-push: helm-package
 	@for chart in $(CHARTS); do \
 	  	$(MAKE) $(addprefix helm-push., $$(basename $${chart})); \
 	done
+
+##@ MCP
+
+MCP_BIN ?= out/kmeshctl
+MCP_IMAGE ?= kmesh-mcp:latest
+
+.PHONY: mcp-server
+mcp-server:
+	go build -o $(MCP_BIN) ./ctl
+
+.PHONY: mcp-test
+mcp-test:
+	go test ./mcp/... -count=1 -coverprofile=coverage.out
+
+.PHONY: mcp-smoke
+mcp-smoke:
+	hack/mcp-e2e-smoke.sh
+
+.PHONY: mcp-image
+mcp-image:
+	docker build -f build/docker/mcp.dockerfile -t $(MCP_IMAGE) .

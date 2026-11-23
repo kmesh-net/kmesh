@@ -1,0 +1,66 @@
+name: MCP Smoke Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'
+
+env:
+  ISTIO_VERSION: '1.28.2'
+
+jobs:
+  mcp-smoke:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v4.0.0
+        with:
+          go-version: '1.25.5'
+
+      - name: Create kind cluster
+        run: kind create cluster --name kmesh-mcp
+
+      - name: Install Istio (ambient)
+        run: |
+          kubectl get crd gateways.gateway.networking.k8s.io >/dev/null 2>&1 || \
+            kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -
+          helm repo add istio https://istio-release.storage.googleapis.com/charts
+          helm repo update
+          helm install istio-base istio/base -n istio-system --create-namespace --version "$ISTIO_VERSION"
+          helm install istiod istio/istiod -n istio-system --version "$ISTIO_VERSION" \
+            --set pilot.env.PILOT_ENABLE_AMBIENT=true
+          kubectl -n istio-system rollout status deploy/istiod --timeout=300s
+
+      - name: Create Kmesh namespace and CA configmap
+        run: |
+          kubectl create namespace kmesh-system --dry-run=client -o yaml | kubectl apply -f -
+          for i in $(seq 1 60); do
+            kubectl -n istio-system get configmap istio-ca-root-cert >/dev/null 2>&1 && break
+            sleep 2
+          done
+          kubectl -n istio-system get configmap istio-ca-root-cert \
+            -o jsonpath='{.data.root-cert\.pem}' > /tmp/root-cert.pem
+          kubectl -n kmesh-system create configmap istio-ca-root-cert \
+            --from-file=root-cert.pem=/tmp/root-cert.pem
+
+      - name: Deploy Kmesh
+        run: |
+          helm install kmesh deploy/charts/kmesh-helm -n kmesh-system \
+            --set deploy.kmesh.image.repository=ghcr.io/kmesh-net/kmesh \
+            --set deploy.kmesh.image.tag=latest \
+            --set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true"
+          kubectl -n kmesh-system rollout status ds/kmesh --timeout=300s
+
+      - name: Deploy bookinfo
+        run: |
+          kubectl create namespace bookinfo
+          kubectl label namespace bookinfo istio.io/dataplane-mode=Kmesh
+          kubectl apply -n bookinfo -f https://raw.githubusercontent.com/istio/istio/master/samples/bookinfo/platform/kube/bookinfo.yaml
+          kubectl -n bookinfo wait --for=condition=ready pod --all --timeout=300s
+
+      - name: Run MCP smoke test
+        run: hack/mcp-e2e-smoke.sh
