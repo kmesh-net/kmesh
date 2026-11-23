@@ -82,7 +82,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 }
 
 func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {
-	if err := c.Processor.PrepareDNSProxy(); err != nil {
+	if err := c.Processor.PrepareDNSProxy(c.GetDnsProxyTrigger()); err != nil {
 		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
 		return err
 	}
@@ -214,4 +214,12 @@ func (c *Controller) SetConnectionMetricTrigger(enable bool) {
 
 func (c *Controller) GetConnectionMetricTrigger() bool {
 	return c.MetricController.EnableConnectionMetric.Load()
+}
+
+func (c *Controller) SetDnsProxyTrigger(enabled bool) {
+	c.MetricController.EnableDnsProxy.Store(enabled)
+}
+
+func (c *Controller) GetDnsProxyTrigger() bool {
+	return c.MetricController.EnableDnsProxy.Load()
 }
