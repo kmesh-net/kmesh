@@ -169,7 +169,7 @@ The format of flannel's conflist is as follows:
 
 The daemon changes are as follows:
 
-- When kmesh is enabled, write the Kemsh plugin configuration to the CNI conflist
+- When kmesh is enabled, write the Kmesh plugin configuration to the CNI conflist
 
  When kmesh-daemon starts, it automatically writes the cni plugin configuration `{"type":"kmesh-cni"}` to the configuration file (.conflist) in the /etc/cni/net.d/ directory
 
