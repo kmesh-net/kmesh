@@ -29,19 +29,39 @@ Flags:
 ./kmesh-daemon --mode=dual-engine --enable-mda
 ```
 
-- Commands Example
+- Admin Endpoints
+
+  kmesh-daemon serves an admin interface on `localhost:15200` (implemented in `pkg/status/status_server.go`). It binds to the loopback interface only, so access it from inside the Kmesh daemon pod, or forward the port to your machine with `kubectl port-forward`. The recommended way to interact with these endpoints is through [`kmeshctl`](../ctl/kmeshctl.md), which wraps them.
+
+  | Method | Path | Purpose |
+  | --- | --- | --- |
+  | GET | `/version` | Print kmesh-daemon version information |
+  | GET | `/debug/ready` | Readiness probe, returns `OK` when the admin server is up |
+  | GET | `/debug/loggers` | List logger scopes; with `?name=<scope>` print the level of one scope (the special scope `bpf` controls BPF program logging) |
+  | POST | `/debug/loggers` | Set a logger level, request body `{"name": "<scope>", "level": "<level>"}` |
+  | GET | `/debug/config_dump/kernel-native` | Dump the configuration cache in kernel-native mode |
+  | GET | `/debug/config_dump/dual-engine` | Dump workloads, services and authorization policies in dual-engine mode |
+  | GET | `/debug/config_dump/bpf/kernel-native` | Dump the BPF map configuration in kernel-native mode |
+  | GET | `/debug/config_dump/bpf/dual-engine` | Dump the BPF map configuration in dual-engine mode |
+  | POST | `/monitoring?enable=<bool>` | Enable or disable traffic monitoring (also toggles access log, workload metrics and connection metrics) |
+  | POST | `/accesslog?enable=<bool>` | Enable or disable access log |
+  | POST | `/workload_metrics?enable=<bool>` | Enable or disable workload metrics |
+  | POST | `/connection_metrics?enable=<bool>` | Enable or disable connection metrics |
+  | POST | `/authz?enable=<bool>` | Enable or disable XDP-based authorization offloading |
+  | GET | `/debug/pprof/` | Go pprof profiling index (also `/debug/pprof/cmdline`, `/debug/pprof/profile`, `/debug/pprof/symbol`, `/debug/pprof/trace`) |
 
   ```sh
-  # curl http://localhost:15200/help
-   /help: print list of commands
-   /options: print config options
-   /bpf/kmesh/maps: print bpf kmesh maps in kernel
-   /controller/envoy: print control-plane in envoy cache
-   /controller/kubernetes: print control-plane in kubernetes cache
-  
-  # example
-  curl http://localhost:15200/bpf/kmesh/maps
-  curl http://localhost:15200/options
+  # forward the admin port from a Kmesh daemon pod
+  kubectl port-forward -n kmesh-system <kmesh-pod> 15200:15200
+
+  # example: print version information
+  curl http://localhost:15200/version
+
+  # example: dump the configuration in dual-engine mode
+  curl http://localhost:15200/debug/config_dump/dual-engine
+
+  # example: set the default logger's level to debug
+  curl -X POST http://localhost:15200/debug/loggers -d '{"name": "default", "level": "debug"}'
   ```
 
 - Precautions
