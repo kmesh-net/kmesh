@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	ns "kmesh.net/kmesh/pkg/controller/netns"
 )
 
 func TestBypassController(t *testing.T) {
@@ -55,7 +56,6 @@ func TestBypassController(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(namespace)
 	c := NewByPassController(client)
-	c.Run(stopCh)
 
 	enabled := atomic.Bool{}
 	disabled := atomic.Bool{}
@@ -73,10 +73,15 @@ func TestBypassController(t *testing.T) {
 	})
 	patches1.ApplyFunc(deleteIptables, func(ns string) error {
 		disabled.Store(true)
-		// Signal that addIptables has been called
+		// Signal that deleteIptables has been called
 		wg.Done()
 		return nil
 	})
+	patches1.ApplyFunc(ns.GetPodNSpath, func(pod *corev1.Pod) (string, error) {
+		return "test-ns-path", nil
+	})
+
+	c.Run(stopCh)
 
 	podWithBypassButNoSidecar := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
@@ -150,4 +155,42 @@ func TestBypassController(t *testing.T) {
 	wg.Wait()
 	assert.Equal(t, true, enabled.Load(), "unexpected value for enabled flag")
 	assert.Equal(t, false, disabled.Load(), "unexpected value for disabled flag")
+
+	enabled.Store(false)
+	disabled.Store(false)
+	// case 5: Pod with sidecar but no bypass label at creation
+	// Since the informer has already synced, this pod addition should NOT trigger 
+	// deleteIptables according to our optimization in AddFunc. 
+	// We verify that it doesn't call deleteIptables and doesn't affect the state.
+	podWithSidecarButNoBypass := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod-no-bypass",
+			Namespace: namespaceName,
+			Labels:    map[string]string{}, // no bypass label
+			Annotations: map[string]string{
+				annotation.SidecarStatus.Name: "placeholder",
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: nodeName,
+		},
+	}
+	// We don't wg.Add(1) because we don't expect any iptables operations for this new pod
+	_, err = client.CoreV1().Pods(namespaceName).Create(context.TODO(), podWithSidecarButNoBypass, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	// Give it some time to process (synchronously in fake informer)
+	assert.Equal(t, false, enabled.Load(), "unexpected value for enabled flag")
+	assert.Equal(t, false, disabled.Load(), "unexpected value for disabled flag (should not have been called for new pod)")
+
+	// case 6: Restart reconciliation (simulated by having pod before HasSynced)
+	// We create a new controller and run it with an existing pod to verify its AddFunc triggers cleanup
+	enabled.Store(false)
+	disabled.Store(false)
+	client2 := fake.NewSimpleClientset(namespace, podWithSidecarButNoBypass)
+	c2 := NewByPassController(client2)
+	wg.Add(1)
+	c2.Run(stopCh)
+	wg.Wait()
+	assert.Equal(t, false, enabled.Load(), "unexpected value for enabled flag in reconciliation")
+	assert.Equal(t, true, disabled.Load(), "unexpected value for disabled flag in reconciliation")
 }
