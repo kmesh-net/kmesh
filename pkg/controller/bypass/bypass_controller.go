@@ -46,6 +46,8 @@ const (
 type Controller struct {
 	pod             cache.SharedIndexInformer
 	informerFactory informers.SharedInformerFactory
+	trackedNS       map[string]bool
+	mu              sync.RWMutex
 }
 
 func NewByPassController(client kubernetes.Interface) *Controller {
@@ -75,6 +77,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
 				return
 			}
+			c.trackNamespace(nspath)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldPod, okOld := oldObj.(*corev1.Pod)
@@ -101,6 +104,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 					log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
 					return
 				}
+				c.untrackNamespace(nspath)
 			}
 			if !shouldBypass(oldPod) && shouldBypass(newPod) {
 				log.Infof("%s/%s: bypass sidecar control", newPod.GetNamespace(), newPod.GetName())
@@ -109,6 +113,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
 					return
 				}
+				c.trackNamespace(nspath)
 			}
 		},
 		// We do not need to process delete here, because
@@ -118,6 +123,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 	c := &Controller{
 		informerFactory: informerFactory,
 		pod:             podInformer,
+		trackedNS:       make(map[string]bool),
 	}
 
 	return c
@@ -190,4 +196,34 @@ func deleteIptables(ns string) error {
 		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
 	}
 	return nil
+}
+
+func (c *Controller) trackNamespace(ns string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.trackedNS[ns] = true
+	log.Debugf("tracked namespace for iptables rules: %s", ns)
+}
+
+func (c *Controller) untrackNamespace(ns string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.trackedNS, ns)
+	log.Debugf("untracked namespace for iptables rules: %s", ns)
+}
+
+func (c *Controller) Stop() {
+	log.Info("stopping bypass controller, cleaning up iptables rules")
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	for ns := range c.trackedNS {
+		if err := deleteIptables(ns); err != nil {
+			log.Errorf("failed to delete iptables rules for %s during cleanup: %v", ns, err)
+			continue
+		}
+		log.Infof("cleaned up iptables rules for namespace: %s", ns)
+	}
+
+	log.Info("bypass controller cleanup completed")
 }
