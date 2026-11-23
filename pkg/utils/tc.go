@@ -32,7 +32,7 @@ import (
 func ManageTCProgramByFd(link netlink.Link, tcFd int, mode int) error {
 	if mode == constants.TC_ATTACH {
 		if err := replaceQdisc(link); err != nil {
-			return fmt.Errorf("failed to replace qdisc for interface %v: %v", link.Attrs().Name, err)
+			return fmt.Errorf("failed to replace qdisc for interface %v: %w", link.Attrs().Name, err)
 		}
 	}
 
@@ -53,11 +53,11 @@ func ManageTCProgramByFd(link netlink.Link, tcFd int, mode int) error {
 
 	if mode == constants.TC_ATTACH {
 		if err := netlink.FilterReplace(filter); err != nil {
-			return fmt.Errorf("failed to replace filter for interface %v: %v", link.Attrs().Name, err)
+			return fmt.Errorf("failed to replace filter for interface %v: %w", link.Attrs().Name, err)
 		}
 	} else if mode == constants.TC_DETACH {
 		if err := netlink.FilterDel(filter); err != nil {
-			return fmt.Errorf("failed to delete filter for interface %v: %v", link.Attrs().Name, err)
+			return fmt.Errorf("failed to delete filter for interface %v: %w", link.Attrs().Name, err)
 		}
 	} else {
 		return fmt.Errorf("invalid mode in ManageTCProgramByFd")
@@ -92,13 +92,13 @@ func GetVethPeerIndexFromName(ifaceName string) (uint64, error) {
 	}
 	defer ethHandle.Close()
 	if driver, err := ethHandle.DriverName(ifaceName); err != nil {
-		return 0, fmt.Errorf("failed to get %v driver name, %v", ifaceName, err)
+		return 0, fmt.Errorf("failed to get %v driver name, %w", ifaceName, err)
 	} else if strings.Compare(driver, "veth") != 0 {
 		return 0, fmt.Errorf("interface: %v is %v, not a veth", ifaceName, driver)
 	}
 
 	if stats, err := ethHandle.Stats(ifaceName); err != nil {
-		return 0, fmt.Errorf("failed to get %v stats, %v", ifaceName, err)
+		return 0, fmt.Errorf("failed to get %v stats, %w", ifaceName, err)
 	} else {
 		ifIndex = stats["peer_ifindex"]
 	}
@@ -120,7 +120,7 @@ func GetVethPeerIndexFromInterface(iface net.Interface) (uint64, error) {
 func IfaceContainIPs(iface net.Interface, IPs []string) (bool, error) {
 	addresses, err := iface.Addrs()
 	if err != nil {
-		return false, fmt.Errorf("failed to get interface %v address: %v", iface.Name, err)
+		return false, fmt.Errorf("failed to get interface %v address: %w", iface.Name, err)
 	}
 
 	for _, rawAddr := range addresses {
