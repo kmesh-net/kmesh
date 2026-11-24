@@ -241,7 +241,7 @@ static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const str
 
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
-            rule_addr->ip6[i] |= (v6addr[i * 4 + j] << (i * 8));
+            rule_addr->ip6[i] |= ((__u32)v6addr[i * 4 + j] << (j * 8));
         }
     }
 
@@ -283,6 +283,7 @@ static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *tar
     if (prefixLen > 128)
         return UNMATCHED;
 
+    ipv6_addr_clear_suffix(rule_addr->ip6, prefixLen);
     ipv6_addr_clear_suffix(target_addr->ip6, prefixLen);
     if (rule_addr->ip6[0] == target_addr->ip6[0] && rule_addr->ip6[1] == target_addr->ip6[1]
         && rule_addr->ip6[2] == target_addr->ip6[2] && rule_addr->ip6[3] == target_addr->ip6[3]) {

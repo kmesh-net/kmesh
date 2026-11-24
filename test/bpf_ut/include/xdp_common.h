@@ -86,6 +86,43 @@
         __ret;                                                                                                         \
     })
 
+#define build_xdp_ipv6_packet(ctx, p_ip6hdr, p_tcphdr)                                                                 \
+    ({                                                                                                                 \
+        int __ret = TEST_PASS;                                                                                         \
+        unsigned int data_len = (ctx)->data_end - (ctx)->data;                                                         \
+                                                                                                                       \
+        int offset = 4096 - 256 - 320 - data_len;                                                                      \
+        if (bpf_xdp_adjust_tail(ctx, offset) != 0) {                                                                   \
+            return TEST_ERROR;                                                                                         \
+        }                                                                                                              \
+                                                                                                                       \
+        void *data = (void *)(long)((ctx)->data);                                                                      \
+        void *data_end = (void *)(long)((ctx)->data_end);                                                              \
+                                                                                                                       \
+        if (data + sizeof(struct ethhdr) > data_end)                                                                   \
+            return TEST_ERROR;                                                                                         \
+        const struct ethhdr eth6 = {                                                                                   \
+            .h_source = {0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF},                                                          \
+            .h_dest = {0x12, 0x23, 0x34, 0x45, 0x56, 0x67},                                                            \
+            .h_proto = bpf_htons(ETH_P_IPV6)};                                                                         \
+        bpf_memcpy(data, &eth6, sizeof(struct ethhdr));                                                                \
+        data += sizeof(struct ethhdr);                                                                                 \
+                                                                                                                       \
+        if (data + sizeof(struct ipv6hdr) > data_end)                                                                  \
+            return TEST_ERROR;                                                                                         \
+        bpf_memcpy(data, (p_ip6hdr), sizeof(struct ipv6hdr));                                                          \
+        data += sizeof(struct ipv6hdr);                                                                                \
+                                                                                                                       \
+        if (data + sizeof(struct tcphdr) > data_end)                                                                   \
+            return TEST_ERROR;                                                                                         \
+        bpf_memcpy(data, (p_tcphdr), sizeof(struct tcphdr));                                                           \
+        data += sizeof(struct tcphdr);                                                                                 \
+                                                                                                                       \
+        offset = (int)((long)data - (long)data_end);                                                                   \
+        bpf_xdp_adjust_tail(ctx, offset);                                                                              \
+        __ret;                                                                                                         \
+    })
+
 /**
  * @brief Verifies that a processed packet matches expected values
  *

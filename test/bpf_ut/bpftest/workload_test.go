@@ -256,12 +256,104 @@ func testXDP(t *testing.T) {
 						}
 					},
 				},
+				{
+					name: "5_ipv6_deny_ip_blocks_matched",
+					setupInUserSpace: xdpAuthzIPv6Setup(security.Action_DENY, &security.Match{
+						SourceIps:        []*security.Address{{Address: xdpTestSrcIP6, Length: 128}},
+						DestinationIps:   []*security.Address{{Address: xdpTestDstIP6, Length: 128}},
+						DestinationPorts: []uint32{80},
+					}),
+				},
+				{
+					name: "6_ipv6_deny_ip_blocks_host_bits_matched",
+					setupInUserSpace: xdpAuthzIPv6Setup(security.Action_DENY, &security.Match{
+						// 2001:db8::ff/64, host bits set in the rule address
+						SourceIps: []*security.Address{{Address: net.ParseIP("2001:db8::ff").To16(), Length: 64}},
+					}),
+				},
+				{
+					name: "7_ipv6_deny_not_ip_blocks_excluded",
+					setupInUserSpace: xdpAuthzIPv6Setup(security.Action_DENY, &security.Match{
+						SourceIps:    []*security.Address{{Address: net.ParseIP("2001:db8::").To16(), Length: 64}},
+						NotSourceIps: []*security.Address{{Address: xdpTestSrcIP6, Length: 128}},
+					}),
+				},
+				{
+					name: "8_ipv6_deny_not_ip_blocks_matched",
+					setupInUserSpace: xdpAuthzIPv6Setup(security.Action_DENY, &security.Match{
+						SourceIps:    []*security.Address{{Address: net.ParseIP("2001:db8::").To16(), Length: 64}},
+						NotSourceIps: []*security.Address{{Address: net.ParseIP("2001:db8::99").To16(), Length: 128}},
+					}),
+				},
+				{
+					name: "9_ipv6_allow_ip_blocks_host_bits_matched",
+					setupInUserSpace: xdpAuthzIPv6Setup(security.Action_ALLOW, &security.Match{
+						// 2001:db8:1::ff/48, host bits set in the rule address
+						DestinationIps: []*security.Address{{Address: net.ParseIP("2001:db8:1::ff").To16(), Length: 48}},
+					}),
+				},
 			},
 		},
 	}
 
 	for _, tt := range XDPtests {
 		t.Run(tt.objFilename, tt.run())
+	}
+}
+
+var (
+	xdpTestSrcIP6 = net.ParseIP("2001:db8::15").To16()
+	xdpTestDstIP6 = net.ParseIP("2001:db8:1::15").To16()
+)
+
+// xdpAuthzIPv6Setup installs a single-match authorization policy for the
+// [2001:db8::15]:23445 -> [2001:db8:1::15]:80 packet used by the IPv6 XDP authz tests.
+func xdpAuthzIPv6Setup(action security.Action, match *security.Match) func(t *testing.T, coll *ebpf.Collection) {
+	return func(t *testing.T, coll *ebpf.Collection) {
+		setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+			BpfLogLevel:  constants.BPF_LOG_DEBUG,
+			AuthzOffload: constants.ENABLED,
+		})
+
+		workload_xdp_registerTailCall(t, coll)
+		workload_setMapsEnv(t, coll)
+		if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   constants.BpfFsPath,
+			Cgroup2Path: constants.Cgroup2Path,
+		}); err != nil {
+			t.Fatalf("NewBpfWorkload failed: %v", err)
+		} else if err := workload.DeserialInit(); err != nil {
+			t.Fatalf("DeserialInit failed: %v", err)
+		}
+		workloadbpf := controllerWorkload.NewProcessor(bpf2go.KmeshCgroupSockWorkloadMaps{
+			KmWlpolicy: coll.Maps["km_wlpolicy"],
+			KmFrontend: coll.Maps["km_frontend"],
+		}).GetBpfCache()
+
+		var frontendKey bpfcache.FrontendKey
+		copy(frontendKey.Ip[:], xdpTestDstIP6)
+		if err := workloadbpf.FrontendUpdate(&frontendKey, &bpfcache.FrontendValue{UpstreamId: 0x01}); err != nil {
+			t.Fatalf("FrontendUpdate failed: %v", err)
+		}
+		if err := workloadbpf.WorkloadPolicyUpdate(&bpfcache.WorkloadPolicyKey{
+			WorklodId: 0x01,
+		}, &bpfcache.WorkloadPolicyValue{
+			PolicyIds: [4]uint32{1},
+		}); err != nil {
+			t.Fatalf("WorkloadPolicyUpdate failed: %v", err)
+		}
+
+		policy := &security.Authorization{
+			Name:   "bpfut_ipv6_" + action.String(),
+			Action: action,
+			Rules: []*security.Rule{
+				{Clauses: []*security.Clause{{Matches: []*security.Match{match}}}},
+			},
+		}
+		if err := maps.AuthorizationUpdate(1, policy); err != nil {
+			t.Fatalf("AuthorizationUpdate failed: %v", err)
+		}
 	}
 }
 
