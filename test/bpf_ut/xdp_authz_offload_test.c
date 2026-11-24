@@ -108,8 +108,14 @@ int test2_check(const struct xdp_md *ctx)
 }
 
 /* [2001:db8::15]:23445 -> [2001:db8:1::15]:80 */
-#define SRC_IP6  {0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x15}
-#define DEST_IP6 {0x20, 0x01, 0x0d, 0xb8, 0, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x15}
+#define SRC_IP6                                                                                                        \
+    {                                                                                                                  \
+        0x20, 0x01, 0x0d, 0xb8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x15                                                  \
+    }
+#define DEST_IP6                                                                                                       \
+    {                                                                                                                  \
+        0x20, 0x01, 0x0d, 0xb8, 0, 0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x15                                               \
+    }
 
 #define xdp_ipv6_pktgen(ctx)                                                                                           \
     ({                                                                                                                 \
