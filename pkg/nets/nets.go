@@ -77,7 +77,7 @@ func CopyIpByteFromSlice(dst *[16]byte, src []byte) {
 // TODO: this may conflict with IpV6 addresses with the same pattern,
 // we should find a better way to indicate the ipv4 address.
 func IpString(ip [16]byte) string {
-	if isZeros(ip[5:]) {
+	if isZeros(ip[4:]) {
 		return net.IP(ip[:4]).String()
 	}
 	return net.IP(ip[:]).String()
