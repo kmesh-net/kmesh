@@ -256,12 +256,95 @@ func testXDP(t *testing.T) {
 						}
 					},
 				},
+				{
+					// DENY with only notIpBlocks: 10.0.0.15 is outside 10.0.0.99/32, so the policy matches and drops
+					name:             "5_deny_not_src_ip_only_matched",
+					setupInUserSpace: xdpAuthzNotSrcIpSetup([]byte{10, 0, 0, 99}),
+				},
+				{
+					// DENY with only notIpBlocks: 10.0.0.15 is excluded, so the policy does not match and passes
+					name:             "6_deny_not_src_ip_only_unmatched",
+					setupInUserSpace: xdpAuthzNotSrcIpSetup([]byte{10, 0, 0, 15}),
+				},
 			},
 		},
 	}
 
 	for _, tt := range XDPtests {
 		t.Run(tt.objFilename, tt.run())
+	}
+}
+
+// xdpAuthzNotSrcIpSetup installs a DENY policy for 10.1.0.15:80 whose only source
+// condition is notSourceIps = {notSrcIp/32}.
+func xdpAuthzNotSrcIpSetup(notSrcIp []byte) func(t *testing.T, coll *ebpf.Collection) {
+	return func(t *testing.T, coll *ebpf.Collection) {
+		setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+			BpfLogLevel:  constants.BPF_LOG_DEBUG,
+			AuthzOffload: constants.ENABLED,
+		})
+
+		workload_xdp_registerTailCall(t, coll)
+		workload_setMapsEnv(t, coll)
+		if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   constants.BpfFsPath,
+			Cgroup2Path: constants.Cgroup2Path,
+		}); err != nil {
+			t.Fatalf("NewBpfWorkload failed: %v", err)
+		} else {
+			if err := workload.DeserialInit(); err != nil {
+				t.Fatalf("DeserialInit failed: %v", err)
+			}
+		}
+		workloadProcessor := controllerWorkload.NewProcessor(bpf2go.KmeshCgroupSockWorkloadMaps{
+			KmWlpolicy: coll.Maps["km_wlpolicy"],
+			KmFrontend: coll.Maps["km_frontend"],
+		})
+
+		workloadbpf := workloadProcessor.GetBpfCache()
+		if err := workloadbpf.FrontendUpdate(&bpfcache.FrontendKey{
+			Ip: [16]byte{10, 1, 0, 15},
+		}, &bpfcache.FrontendValue{
+			UpstreamId: 0x01,
+		}); err != nil {
+			t.Fatalf("FrontendUpdate failed: %v", err)
+		}
+		if err := workloadbpf.WorkloadPolicyUpdate(&bpfcache.WorkloadPolicyKey{
+			WorklodId: 0x01,
+		}, &bpfcache.WorkloadPolicyValue{
+			PolicyIds: [4]uint32{1},
+		}); err != nil {
+			t.Fatalf("WorkloadPolicyUpdate failed: %v", err)
+		}
+
+		policy_k := uint32(1)
+		denyPolicy := &security.Authorization{
+			Name:   "bpfut_deny_not_src_ip_only",
+			Action: security.Action_DENY,
+			Rules: []*security.Rule{
+				{
+					Clauses: []*security.Clause{
+						{
+							Matches: []*security.Match{
+								{
+									NotSourceIps: []*security.Address{
+										{
+											Address: notSrcIp,
+											Length:  32,
+										},
+									},
+									DestinationPorts: []uint32{80},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		if err := maps.AuthorizationUpdate(policy_k, denyPolicy); err != nil {
+			t.Fatalf("AuthorizationUpdate failed: %v", err)
+		}
 	}
 }
 

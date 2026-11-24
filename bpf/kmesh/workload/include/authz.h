@@ -377,6 +377,11 @@ static inline int match_ip_common(struct MatchIpParams *params)
         }
     }
 
+    // Only `not_` IPs were given and none of them matched, so this is a match
+    if (params->n_ips == 0) {
+        return MATCHED;
+    }
+
     // Match IPs
     if (params->n_ips != 0) {
         ipPtrs = KMESH_GET_PTR_VAL(params->ip_list, void *);
