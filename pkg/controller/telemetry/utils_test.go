@@ -18,26 +18,22 @@ package telemetry
 
 import (
 	"context"
+	"io"
+	"net"
+	"net/http"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
 func TestRegisterMetrics(t *testing.T) {
-	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	newMetricsRegistry()
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosedInWorkload,
@@ -162,22 +158,10 @@ func TestRegisterMetrics(t *testing.T) {
 			t.Errorf("metric not register")
 		}
 	}
-	cancel()
 }
 
 func TestDeleteWorkloadMetric(t *testing.T) {
-	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	newMetricsRegistry()
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosedInWorkload,
@@ -246,22 +230,10 @@ func TestDeleteWorkloadMetric(t *testing.T) {
 			}
 		})
 	}
-	cancel()
 }
 
 func TestDeleteServiceMetric(t *testing.T) {
-	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	newMetricsRegistry()
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosedInService,
@@ -326,22 +298,10 @@ func TestDeleteServiceMetric(t *testing.T) {
 			}
 		})
 	}
-	cancel()
 }
 
 func TestDeleteConnectionMetric(t *testing.T) {
-	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	newMetricsRegistry()
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionTotalSendBytes,
@@ -415,5 +375,95 @@ func TestDeleteConnectionMetric(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunMetricsServerPortConflict(t *testing.T) {
+	// Hold the port so every attempt to start the metrics server fails.
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer ln.Close()
+	addr := ln.Addr().String()
+
+	assert.Error(t, serveMetrics(context.Background(), addr, newMetricsHandler(newMetricsRegistry())))
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		runMetricsServer(ctx, addr, newMetricsHandler(newMetricsRegistry()), 10*time.Millisecond)
+	}()
+
+	// Let it fail and retry a few times; the test process must keep running.
+	time.Sleep(100 * time.Millisecond)
 	cancel()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("runMetricsServer did not return after the context was cancelled")
+	}
+}
+
+var registerDefaultMuxHandler sync.Once
+
+func TestServeMetrics(t *testing.T) {
+	// A handler on http.DefaultServeMux must not be served by the metrics server.
+	registerDefaultMuxHandler.Do(func() {
+		http.HandleFunc("/debug/telemetry-default-mux", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+	})
+	mapCountInNode.WithLabelValues("telemetry-test-node").Set(1)
+	defer mapCountInNode.DeleteLabelValues("telemetry-test-node")
+
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	addr := ln.Addr().String()
+	require.NoError(t, ln.Close())
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- serveMetrics(ctx, addr, newMetricsHandler(newMetricsRegistry()))
+	}()
+
+	get := func(path string) (int, string, error) {
+		resp, err := http.Get("http://" + addr + path)
+		if err != nil {
+			return 0, "", err
+		}
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		return resp.StatusCode, string(body), err
+	}
+	require.Eventually(t, func() bool {
+		_, _, err := get(metricsPath)
+		return err == nil
+	}, 5*time.Second, 10*time.Millisecond)
+
+	tests := []struct {
+		path       string
+		wantStatus int
+		wantBody   string
+	}{
+		{path: metricsPath, wantStatus: http.StatusOK, wantBody: "kmesh_map_count_total"},
+		{path: "/debug/telemetry-default-mux", wantStatus: http.StatusNotFound},
+		{path: "/debug/pprof/", wantStatus: http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		status, body, err := get(tt.path)
+		require.NoError(t, err)
+		assert.Equal(t, tt.wantStatus, status, tt.path)
+		assert.Contains(t, body, tt.wantBody, tt.path)
+	}
+
+	cancel()
+	select {
+	case err := <-errCh:
+		assert.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("serveMetrics did not return after the context was cancelled")
+	}
+	_, _, err = get(metricsPath)
+	assert.Error(t, err, "the metrics server should be stopped")
 }

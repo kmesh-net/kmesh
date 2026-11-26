@@ -18,7 +18,6 @@ package telemetry
 
 import (
 	"bytes"
-	"context"
 	"net"
 	"reflect"
 	"testing"
@@ -1653,8 +1652,7 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			go RunPrometheusClient(ctx)
+			newMetricsRegistry()
 			m := &MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{
@@ -1694,7 +1692,6 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 				assert.Equal(t, tt.want[index], v2)
 				index = index + 1
 			}
-			cancel()
 		})
 	}
 }
