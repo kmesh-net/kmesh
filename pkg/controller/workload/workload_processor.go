@@ -1181,6 +1181,9 @@ func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
 		value = bpf.WorkloadPolicyValue{}
 	)
 	if len(polices) == 0 {
+		if id, ok := p.hashName.GetStrToNum()[uid]; ok {
+			p.deleteWorkloadPolicies(id)
+		}
 		return
 	}
 	key.WorklodId = p.hashName.Hash(uid)
