@@ -53,3 +53,56 @@ func TestNewCmd(t *testing.T) {
 		}
 	}
 }
+
+func TestControlMonitoring_NoParameters(t *testing.T) {
+	cmd := NewCmd()
+	err := ControlMonitoring(cmd, []string{})
+	if err == nil {
+		t.Fatal("expected error when no flags are set, got nil")
+	}
+	expected := "no parameters. Need --accesslog, --workloadMetrics, --connectionMetrics or --all"
+	if err.Error() != expected {
+		t.Errorf("got error %q, want %q", err.Error(), expected)
+	}
+}
+
+func TestControlMonitoring_InvalidFlagValue(t *testing.T) {
+	testCases := []struct {
+		name     string
+		flagName string
+		val      string
+	}{
+		{"invalid accesslog", "accesslog", "invalid"},
+		{"invalid all", "all", "yes"},
+		{"invalid workloadMetrics", "workloadMetrics", "true"},
+		{"invalid connectionMetrics", "connectionMetrics", "1"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := NewCmd()
+			if err := cmd.Flags().Set(tc.flagName, tc.val); err != nil {
+				t.Fatalf("failed to set flag: %v", err)
+			}
+			err := ControlMonitoring(cmd, []string{})
+			if err == nil {
+				t.Fatalf("expected error for %s=%s, got nil", tc.flagName, tc.val)
+			}
+			expected := "argument must be 'enable' or 'disable'"
+			if err.Error() != expected {
+				t.Errorf("got error %q, want %q", err.Error(), expected)
+			}
+		})
+	}
+}
+
+func TestSetObservabilityPerKmeshDaemon_InvalidValue(t *testing.T) {
+	err := SetObservabilityPerKmeshDaemon(nil, "kmesh-daemon-test", "invalid", MONITORING, patternMonitoring)
+	if err == nil {
+		t.Fatal("expected error for invalid value, got nil")
+	}
+	expected := "argument must be 'enable' or 'disable'"
+	if err.Error() != expected {
+		t.Errorf("got error %q, want %q", err.Error(), expected)
+	}
+}
