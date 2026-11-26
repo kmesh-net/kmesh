@@ -321,6 +321,9 @@ func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, interv
 		t.Fatalf("Failed to rotate IPSec key: %v\n%s", err, string(out))
 		return err
 	}
+	if !strings.Contains(string(out), "IPsec secret updated (SPI: 2)") {
+		t.Fatalf("unexpected output from kmeshctl secret create --key: %s", string(out))
+	}
 	t.Logf("kmeshctl secret update success")
 
 	t.Logf("Waiting for SPI 0x00000002 to appear in both state and policy (interval %ds)...", intervalSec)
@@ -354,6 +357,9 @@ func TestIPsec(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to rotate IPSec key: %v\n%s", err, string(out))
 		return
+	}
+	if !strings.Contains(string(out), "IPsec secret created (SPI: 1)") {
+		t.Fatalf("unexpected output from kmeshctl secret create: %s", string(out))
 	}
 
 	// wait until both ip xfrm state and policy are non-empty before continuing
