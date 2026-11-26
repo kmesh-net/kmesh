@@ -67,7 +67,7 @@ func (b *nameTableBuilder) BuildNameTable() *dnsproto.NameTable {
 			ip := net.IP(svcAddress.Address)
 
 			if ip.IsUnspecified() {
-				break
+				continue
 			}
 
 			// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
