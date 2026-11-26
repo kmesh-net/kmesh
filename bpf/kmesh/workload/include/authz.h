@@ -407,8 +407,11 @@ static inline int match_ip_common(struct MatchIpParams *params)
                 return MATCHED;
             }
         }
+        return UNMATCHED;
     }
-    return UNMATCHED;
+
+    // There are only `not_` IPs and none of them matched, so this is a match.
+    return MATCHED;
 }
 
 static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
