@@ -215,6 +215,8 @@ func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error
 			}
 			lookUpTable[c] = b.index
 			b.next++
+			// Resume this backend after the slots already examined on its previous turn.
+			backends[j] = b
 			break
 		}
 	}
