@@ -17,6 +17,7 @@
 package options
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -48,6 +49,10 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 }
 
 func (c *BpfConfig) ParseConfig() error {
+	if c.Mode != constants.KernelNativeMode && c.Mode != constants.DualEngineMode {
+		return fmt.Errorf("invalid mode %q: must be one of [%s, %s]", c.Mode, constants.KernelNativeMode, constants.DualEngineMode)
+	}
+
 	var err error
 
 	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
