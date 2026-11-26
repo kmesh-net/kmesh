@@ -24,6 +24,7 @@ import (
 	logcmd "kmesh.net/kmesh/ctl/log"
 	mcpcmd "kmesh.net/kmesh/ctl/mcp"
 	"kmesh.net/kmesh/ctl/monitoring"
+	"kmesh.net/kmesh/ctl/namespace"
 	"kmesh.net/kmesh/ctl/secret"
 	"kmesh.net/kmesh/ctl/version"
 	"kmesh.net/kmesh/ctl/waypoint"
@@ -43,6 +44,7 @@ func GetRootCommand() *cobra.Command {
 	rootCmd.AddCommand(logcmd.NewCmd())
 	rootCmd.AddCommand(dump.NewCmd())
 	rootCmd.AddCommand(waypoint.NewCmd())
+	rootCmd.AddCommand(namespace.NewCmd())
 	rootCmd.AddCommand(version.NewCmd())
 	rootCmd.AddCommand(monitoring.NewCmd())
 	rootCmd.AddCommand(authz.NewCmd())
