@@ -190,7 +190,7 @@ func (cache *ClusterCache) Flush() {
 	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
-			cluster.Id = cache.hashName.StrToNum(name)
+			cluster.Id = cache.hashName.Hash(name)
 			err := maps_v2.ClusterUpdate(name, cluster)
 			if cluster.GetLbPolicy() == cluster_v2.Cluster_MAGLEV {
 				// create consistent lb here and update table to bpf map
