@@ -45,14 +45,18 @@ type Resolver interface {
 
 type DNSResolver struct {
 	sync.RWMutex
-	DnsChan      chan string
-	cache        map[string]*DomainCacheEntry
-	refreshQueue workqueue.TypedDelayingInterface[any]
+	DnsChan chan string
+	cache   map[string]*DomainCacheEntry
+	// refreshQueue is keyed by domain name so that a domain which is already
+	// queued or being resolved is not scheduled a second time.
+	refreshQueue workqueue.TypedDelayingInterface[string]
 	delegates    []Resolver
 }
 
 type DomainCacheEntry struct {
 	Addresses []string
+	// RefreshRate caps the interval between two refreshes of the domain.
+	RefreshRate time.Duration
 }
 
 type DomainInfo struct {
@@ -64,7 +68,7 @@ func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
 		DnsChan:      make(chan string, 100),
 		cache:        map[string]*DomainCacheEntry{},
-		refreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "refreshQueue"}),
+		refreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[string]{Name: "refreshQueue"}),
 		delegates:    []Resolver{},
 	}
 
@@ -102,33 +106,36 @@ func (r *DNSResolver) StartDnsResolver(stop <-chan struct{}) {
 }
 
 func (r *DNSResolver) refreshDns() {
-	element, quit := r.refreshQueue.Get()
+	domain, quit := r.refreshQueue.Get()
 	if quit {
 		return
 	}
-	defer r.refreshQueue.Done(element)
-	e := element.(*DomainInfo)
+	defer r.refreshQueue.Done(domain)
 
-	r.Lock()
-	_, exist := r.cache[e.Domain]
-	r.Unlock()
+	r.RLock()
+	entry, exist := r.cache[domain]
+	var refreshRate time.Duration
+	if exist {
+		refreshRate = entry.RefreshRate
+	}
+	r.RUnlock()
 	// if the domain is no longer watched, no need to refresh it
 	if !exist {
 		return
 	}
-	_, ttl, err := r.resolve(e.Domain)
+	_, ttl, err := r.resolve(domain)
 	if err != nil {
 		log.Errorf("failed to dns resolve: %v", err)
 		return
 	}
-	if ttl > e.RefreshRate {
-		ttl = e.RefreshRate
+	if ttl > refreshRate {
+		ttl = refreshRate
 	}
 	if ttl == 0 {
 		ttl = DeRefreshInterval
 	}
-	r.refreshQueue.AddAfter(e, ttl)
-	r.DnsChan <- e.Domain
+	r.refreshQueue.AddAfter(domain, ttl)
+	r.DnsChan <- domain
 }
 
 // This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
@@ -308,10 +315,21 @@ func (r *DNSResolver) AddDomainInQueue(info *DomainInfo, time time.Duration) {
 
 	// init pending domain in dns cache
 	r.Lock()
-	if r.cache[info.Domain] == nil {
-		r.cache[info.Domain] = &DomainCacheEntry{}
+	entry := r.cache[info.Domain]
+	if entry == nil {
+		entry = &DomainCacheEntry{}
+		r.cache[info.Domain] = entry
+	}
+	// Several clusters or workloads may share a hostname with different refresh
+	// rates; keep the strictest one so the single loop satisfies all of them.
+	if entry.RefreshRate == 0 || (info.RefreshRate > 0 && info.RefreshRate < entry.RefreshRate) {
+		entry.RefreshRate = info.RefreshRate
 	}
 	r.Unlock()
 
-	r.refreshQueue.AddAfter(info, time)
+	// The queue is keyed by domain, so a domain that is already queued is not
+	// enqueued twice: one waiting in the delay heap is refreshed now and keeps a
+	// single scheduled refresh, one in flight is resolved once more after it
+	// finishes. Either way there is only ever one refresh loop per domain.
+	r.refreshQueue.AddAfter(info.Domain, time)
 }
