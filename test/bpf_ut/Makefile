@@ -10,7 +10,7 @@ build-bpf-tests:
 
 run: build-bpf-tests
 	@echo "Running BPF unit tests..."
-	@cd $(ROOT_DIR)/test/bpf_ut/bpftest && go test -v ./...
+	@cd $(ROOT_DIR)/test/bpf_ut/bpftest && go test -count=1 -v ./... -args -bpf-ut-path="$(ROOT_DIR)/test/bpf_ut"
 
 clean:
 	@echo "Cleaning build files..."
