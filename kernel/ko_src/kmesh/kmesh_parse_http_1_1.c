@@ -198,14 +198,15 @@ static enum state __parse_respose_startline(
             current_state = ST_STATUS_CODE;
             break;
         case ST_STATUS_CODE:
-            if (ch < '0' || ch > '9')
-                goto failed;
             if (ch == SPACE) {
                 status_code->value.ptr = pstart;
                 status_code->value.size = i - start;
                 (void)strncpy(status_code->keystring, "STATUS", STATUS_STRING_LENGTH);
                 current_state = ST_SPACE_BEFORE_REASON;
+                break;
             }
+            if (ch < '0' || ch > '9')
+                goto failed;
             break;
         case ST_SPACE_BEFORE_REASON:
             pstart = msg->ptr + i;
@@ -213,7 +214,7 @@ static enum state __parse_respose_startline(
             current_state = ST_REASON;
             break;
         case ST_REASON:
-            if (ch == LF) {
+            if (ch == CR) {
                 reason->value.ptr = pstart;
                 reason->value.size = i - start;
                 (void)strncpy(reason->keystring, "REASON", REASON_STRING_LENGTH);
