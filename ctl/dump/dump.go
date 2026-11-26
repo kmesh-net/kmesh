@@ -32,6 +32,7 @@ import (
 	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/nets"
 )
 
 const (
@@ -152,7 +153,7 @@ func printKernelNativeTable(out io.Writer, body []byte) {
 				addr, port := "-", "-"
 				if sa := l.GetAddress(); sa != nil {
 					addr = uint32ToIPStr(sa.GetIpv4())
-					port = fmt.Sprintf("%d", sa.GetPort())
+					port = fmt.Sprintf("%d", nets.ConvertPortToLittleEndian(sa.GetPort()))
 				}
 				var fcNames []string
 				for _, fc := range l.GetFilterChains() {
