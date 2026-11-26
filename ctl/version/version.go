@@ -72,13 +72,14 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 		daemonVersions := map[string]int{}
 		for _, pod := range podList.Items {
-			v := getVersion(cli, pod.Name)
-			if v.GitVersion != "" {
-				if stringMatch(v.GitVersion) {
-					daemonVersions[v.GitVersion] = daemonVersions[v.GitVersion] + 1
-				} else {
-					daemonVersions[v.GitVersion+"-"+v.GitCommit] = daemonVersions[v.GitVersion+"-"+v.GitCommit] + 1
-				}
+			v, verr := getVersion(cli, pod.Name)
+			if verr != nil {
+				continue
+			}
+			if stringMatch(v.GitVersion) {
+				daemonVersions[v.GitVersion] = daemonVersions[v.GitVersion] + 1
+			} else {
+				daemonVersions[v.GitVersion+"-"+v.GitCommit] = daemonVersions[v.GitVersion+"-"+v.GitCommit] + 1
 			}
 		}
 		counts := []string{}
@@ -91,25 +92,28 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 
 	podName := args[0]
-	v := getVersion(cli, podName)
-	if v.GitVersion != "" {
-		data, err := json.MarshalIndent(&v, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal version info: %v", err)
-		}
-		cmd.Printf("%s\n", string(data))
+	v, err := getVersion(cli, podName)
+	if err != nil {
+		return fmt.Errorf("failed to get version of pod %s: %v", podName, err)
 	}
+	data, err := json.MarshalIndent(&v, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal version info: %v", err)
+	}
+	cmd.Printf("%s\n", string(data))
 	return nil
 }
 
-func getVersion(client kube.CLIClient, podName string) (version version.Info) {
-	fw, err := utils.CreateKmeshPortForwarder(client, podName)
-	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
+func getVersion(client kube.CLIClient, podName string) (version version.Info, err error) {
+	fw, ferr := utils.CreateKmeshPortForwarder(client, podName)
+	if ferr != nil {
+		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, ferr)
+		err = ferr
 		return
 	}
-	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+	if serr := fw.Start(); serr != nil {
+		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, serr)
+		err = serr
 		return
 	}
 	defer fw.Close()
@@ -123,14 +127,22 @@ func getVersion(client kube.CLIClient, podName string) (version version.Info) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Errorf("failed to read HTTP response body: %v", err)
+	body, rerr := io.ReadAll(resp.Body)
+	if rerr != nil {
+		log.Errorf("failed to read HTTP response body: %v", rerr)
+		err = rerr
 		return
 	}
 
-	if err := json.Unmarshal(body, &version); err != nil {
-		log.Errorf("failed to unmarshal version info: %v", err)
+	if uerr := json.Unmarshal(body, &version); uerr != nil {
+		log.Errorf("failed to unmarshal version info: %v", uerr)
+		err = uerr
+		return
+	}
+
+	if version.GitVersion == "" {
+		log.Errorf("received empty version info for pod %s", podName)
+		err = fmt.Errorf("empty version info for pod %s", podName)
 		return
 	}
 
