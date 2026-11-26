@@ -18,21 +18,32 @@ package telemetry
 
 import (
 	"context"
+	"errors"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
+const (
+	metricsServerAddr    = ":15020"
+	metricsPath          = "/status/metric"
+	metricsServerTimeout = 20 * time.Second
+)
+
 var (
 	log = logger.NewLoggerScope("telemetry")
-	// ensure not occur matche the same requests as /status/metric panic in unit test
-	mu sync.Mutex
+	// metricsServerRetryPeriod is how long RunPrometheusClient waits before
+	// starting the metrics server again after it fails.
+	metricsServerRetryPeriod = 5 * time.Second
 	// Ensure concurrency security when removing metriclabels from workloads and services.
 	deleteLock       sync.Mutex
 	deleteWorkload   = []*workloadapi.Workload{}
@@ -300,34 +311,79 @@ var (
 	)
 )
 
+// RunPrometheusClient serves the metrics on :15020 until ctx is done.
+// If the server cannot listen or stops with an error, the error is logged
+// and the server is started again after metricsServerRetryPeriod, so a
+// port conflict does not stop the daemon.
 func RunPrometheusClient(ctx context.Context) {
-	registry := prometheus.NewRegistry()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			runPrometheusClient(registry)
-		}
-	}
+	handler := newMetricsHandler(newMetricsRegistry())
+	runMetricsServer(ctx, metricsServerAddr, handler, metricsServerRetryPeriod)
 }
 
-func runPrometheusClient(registry *prometheus.Registry) {
-	// ensure not occur matche the same requests as /status/metric panic in unit test
-	mu.Lock()
-	defer mu.Unlock()
+// newMetricsRegistry returns a registry with every exported metric registered once.
+func newMetricsRegistry() *prometheus.Registry {
+	registry := prometheus.NewRegistry()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
 	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
 	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
 	registry.MustRegister(mapEntryCount, mapCountInNode)
+	return registry
+}
 
-	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+// newMetricsHandler serves the registry on its own mux, so only metricsPath
+// is exposed and nothing registered on http.DefaultServeMux leaks onto the port.
+func newMetricsHandler(registry *prometheus.Registry) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle(metricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		Registry: registry,
 	}))
-	if err := http.ListenAndServe(":15020", nil); err != nil {
-		log.Fatalf("start prometheus client port failed: %v", err)
+	return mux
+}
+
+func runMetricsServer(ctx context.Context, addr string, handler http.Handler, retryPeriod time.Duration) {
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		if err := serveMetrics(ctx, addr, handler); err != nil {
+			log.Errorf("prometheus metrics server on %s failed, retrying in %v: %v", addr, retryPeriod, err)
+		}
+	}, retryPeriod)
+}
+
+// serveMetrics serves handler on addr until ctx is done or the server fails.
+// It returns nil after a shutdown caused by ctx.
+func serveMetrics(ctx context.Context, addr string, handler http.Handler) error {
+	ln, err := net.Listen("tcp", addr)
+	if err != nil {
+		return err
 	}
+
+	server := &http.Server{
+		Handler:      handler,
+		ReadTimeout:  metricsServerTimeout,
+		WriteTimeout: metricsServerTimeout,
+	}
+	serveDone := make(chan struct{})
+	shutdownDone := make(chan struct{})
+	go func() {
+		defer close(shutdownDone)
+		select {
+		case <-ctx.Done():
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), metricsServerTimeout)
+			defer cancel()
+			if err := server.Shutdown(shutdownCtx); err != nil {
+				log.Errorf("failed to shut down prometheus metrics server on %s: %v", addr, err)
+			}
+		case <-serveDone:
+		}
+	}()
+
+	err = server.Serve(ln)
+	close(serveDone)
+	<-shutdownDone
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }
 
 func DeleteWorkloadMetric(workload *workloadapi.Workload) {
