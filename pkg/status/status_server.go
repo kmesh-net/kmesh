@@ -45,7 +45,7 @@ import (
 var log = logger.NewLoggerScope("status")
 
 const (
-	adminAddr = "localhost:15200"
+	adminAddr = ":15200"
 
 	patternVersion            = "/version"
 	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"

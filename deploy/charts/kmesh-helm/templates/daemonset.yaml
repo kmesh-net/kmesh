@@ -58,6 +58,14 @@ spec:
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh
+        readinessProbe:
+          httpGet:
+            path: /debug/ready
+            port: 15200
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 5
         resources: {{- toYaml .Values.deploy.kmesh.resources | nindent 10 }}
         securityContext:
           privileged: true
