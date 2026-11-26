@@ -6,7 +6,7 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 
 function get_go_test_command() {
 	if [ -z "$TEST_PKG" ]; then
-		TEST_PKG="./pkg/..."
+		TEST_PKG="./pkg/... ./ctl/..."
 	fi
 
 	if [ -z "$TEST_TARGET" ]; then
