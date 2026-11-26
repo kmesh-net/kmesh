@@ -77,7 +77,9 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 	k8sCommonArgs := k8sArgs{}
 	if err := types.LoadArgs(args.Args, &k8sCommonArgs); err != nil {
 		log.Errorf("failed to load k8s args: %v", err)
-		return nil, nil, result, err
+		// The config and the previous result were parsed fine; return them so
+		// the caller can still print the previous result with the right version.
+		return &cniConf, nil, result, err
 	}
 	return &cniConf, &k8sCommonArgs, result, nil
 }
@@ -175,7 +177,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 	cniConf, k8sConf, preResult, err := parseSkelArgs(args)
 	if err != nil {
 		log.Error("failed to parse config")
-		if preResult == nil {
+		if preResult == nil || cniConf == nil {
 			return err
 		}
 		return types.PrintResult(preResult, cniConf.CNIVersion)
