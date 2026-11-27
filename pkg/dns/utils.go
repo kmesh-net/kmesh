@@ -104,6 +104,12 @@ func (s *fakeDNSServer) SetTTL(ttl uint32) {
 	s.ttl = ttl
 }
 
+func (s *fakeDNSServer) SetFailure(failure bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.failure = failure
+}
+
 func (r *DNSResolver) GetDNSAddresses(domain string) []string {
 	r.Lock()
 	defer r.Unlock()

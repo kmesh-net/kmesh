@@ -35,7 +35,7 @@ var (
 
 const (
 	MaxConcurrency    uint32 = 5
-	RetryAfter               = 5 * time.Millisecond
+	RetryAfter               = 1 * time.Second
 	DeRefreshInterval        = 15 * time.Second
 )
 
@@ -119,6 +119,12 @@ func (r *DNSResolver) refreshDns() {
 	_, ttl, err := r.resolve(e.Domain)
 	if err != nil {
 		log.Errorf("failed to dns resolve: %v", err)
+		r.Lock()
+		_, exist := r.cache[e.Domain]
+		r.Unlock()
+		if exist {
+			r.refreshQueue.AddAfter(e, RetryAfter)
+		}
 		return
 	}
 	if ttl > e.RefreshRate {

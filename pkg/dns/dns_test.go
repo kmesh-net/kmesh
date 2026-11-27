@@ -142,3 +142,114 @@ func TestDNS(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestDNSRefreshRetryOnFailure(t *testing.T) {
+	fakeDNSServer := NewFakeDNSServer()
+	testDNSResolver, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
+	testDNSResolver.delegates = []Resolver{NewUpstreamResolver(dnsServer)}
+	go testDNSResolver.StartDnsResolver(stopCh)
+
+	domain := "www.retry-test.com."
+	fakeDNSServer.SetHosts(domain, 1)
+	fakeDNSServer.SetTTL(1) // 1 second TTL
+
+	// Initial resolution
+	testDNSResolver.AddDomainInQueue(&DomainInfo{
+		Domain:      domain,
+		RefreshRate: 10 * time.Second,
+	}, 0)
+
+	// Wait for initial resolution to populate cache
+	expectedInitial := []string{"10.0.0.1", "fd00::1"}
+	var addresses []string
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		addresses = testDNSResolver.GetDNSAddresses(domain)
+		if reflect.DeepEqual(addresses, expectedInitial) {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if !reflect.DeepEqual(addresses, expectedInitial) {
+		t.Fatalf("initial resolution failed: got %v, want %v", addresses, expectedInitial)
+	}
+
+	// Simulate temporary upstream DNS failure
+	fakeDNSServer.SetFailure(true)
+	// Update backend host to return new IP once healthy
+	fakeDNSServer.SetHosts(domain, 2)
+
+	// Wait for TTL (1s) to expire so refreshDns() executes and encounters the failure
+	time.Sleep(1500 * time.Millisecond)
+
+	// DNS resolution failed during refresh; previous addresses should still remain in cache
+	addresses = testDNSResolver.GetDNSAddresses(domain)
+	if !reflect.DeepEqual(addresses, expectedInitial) {
+		t.Fatalf("cache should retain previous addresses on failure: got %v, want %v", addresses, expectedInitial)
+	}
+
+	// Restore DNS health
+	fakeDNSServer.SetFailure(false)
+
+	// If refreshDns() correctly retries failed domains, it will re-attempt and update the cache.
+	// In the un-fixed code, the domain is dropped from the queue and this check times out.
+	expectedRecovered := []string{"10.0.0.2", "fd00::2"}
+	recovered := false
+	retryDeadline := time.Now().Add(4 * time.Second)
+	for time.Now().Before(retryDeadline) {
+		addresses = testDNSResolver.GetDNSAddresses(domain)
+		if reflect.DeepEqual(addresses, expectedRecovered) {
+			recovered = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	if !recovered {
+		t.Fatalf("domain failed to recover after temporary DNS failure; refresh queue dropped domain: got %v, want %v", addresses, expectedRecovered)
+	}
+}
+
+func TestDNSRefreshUnwatchedDomainNotRetried(t *testing.T) {
+	fakeDNSServer := NewFakeDNSServer()
+	testDNSResolver, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
+	testDNSResolver.delegates = []Resolver{NewUpstreamResolver(dnsServer)}
+	go testDNSResolver.StartDnsResolver(stopCh)
+
+	domain := "www.unwatch-test.com."
+	fakeDNSServer.SetFailure(true)
+
+	// Add domain in queue
+	testDNSResolver.AddDomainInQueue(&DomainInfo{
+		Domain:      domain,
+		RefreshRate: 10 * time.Second,
+	}, 0)
+
+	// Now remove from watch
+	testDNSResolver.RemoveUnwatchDomain(map[string]interface{}{})
+
+	// Wait for retry interval
+	time.Sleep(1500 * time.Millisecond)
+
+	// Verify domain is not in cache
+	testDNSResolver.Lock()
+	_, exist := testDNSResolver.cache[domain]
+	testDNSResolver.Unlock()
+	if exist {
+		t.Fatalf("unwatched domain should not exist in cache")
+	}
+}
