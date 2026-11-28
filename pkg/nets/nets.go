@@ -69,6 +69,7 @@ func CopyIpByteFromSlice(dst *[16]byte, src []byte) {
 	if len != 4 && len != 16 {
 		return
 	}
+	*dst = [16]byte{}
 	copy(dst[:], src)
 }
 
