@@ -256,12 +256,87 @@ func testXDP(t *testing.T) {
 						}
 					},
 				},
+				{
+					// 0.0.0.0/0 contains 10.0.0.15, so the DENY matches and drops
+					name: "5_deny_ipv4_prefix0_matched",
+					setupInUserSpace: xdpAuthzDenySetup(&security.Match{
+						SourceIps: []*security.Address{
+							{
+								Address: []byte{0, 0, 0, 0},
+								Length:  0,
+							},
+						},
+						DestinationPorts: []uint32{80},
+					}),
+				},
 			},
 		},
 	}
 
 	for _, tt := range XDPtests {
 		t.Run(tt.objFilename, tt.run())
+	}
+}
+
+// xdpAuthzDenySetup installs a DENY policy with a single match on the
+// workload behind 10.1.0.15.
+func xdpAuthzDenySetup(match *security.Match) func(t *testing.T, coll *ebpf.Collection) {
+	return func(t *testing.T, coll *ebpf.Collection) {
+		setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+			BpfLogLevel:  constants.BPF_LOG_DEBUG,
+			AuthzOffload: constants.ENABLED,
+		})
+
+		workload_xdp_registerTailCall(t, coll)
+		workload_setMapsEnv(t, coll)
+		if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   constants.BpfFsPath,
+			Cgroup2Path: constants.Cgroup2Path,
+		}); err != nil {
+			t.Fatalf("NewBpfWorkload failed: %v", err)
+		} else {
+			if err := workload.DeserialInit(); err != nil {
+				t.Fatalf("DeserialInit failed: %v", err)
+			}
+		}
+		workloadProcessor := controllerWorkload.NewProcessor(bpf2go.KmeshCgroupSockWorkloadMaps{
+			KmWlpolicy: coll.Maps["km_wlpolicy"],
+			KmFrontend: coll.Maps["km_frontend"],
+		})
+
+		workloadbpf := workloadProcessor.GetBpfCache()
+		if err := workloadbpf.FrontendUpdate(&bpfcache.FrontendKey{
+			Ip: [16]byte{10, 1, 0, 15},
+		}, &bpfcache.FrontendValue{
+			UpstreamId: 0x01,
+		}); err != nil {
+			t.Fatalf("FrontendUpdate failed: %v", err)
+		}
+		if err := workloadbpf.WorkloadPolicyUpdate(&bpfcache.WorkloadPolicyKey{
+			WorklodId: 0x01,
+		}, &bpfcache.WorkloadPolicyValue{
+			PolicyIds: [4]uint32{1},
+		}); err != nil {
+			t.Fatalf("WorkloadPolicyUpdate failed: %v", err)
+		}
+
+		denyPolicy := &security.Authorization{
+			Name:   "bpfut_deny_match",
+			Action: security.Action_DENY,
+			Rules: []*security.Rule{
+				{
+					Clauses: []*security.Clause{
+						{
+							Matches: []*security.Match{match},
+						},
+					},
+				},
+			},
+		}
+		if err := maps.AuthorizationUpdate(1, denyPolicy); err != nil {
+			t.Fatalf("AuthorizationUpdate failed: %v", err)
+		}
 	}
 }
 

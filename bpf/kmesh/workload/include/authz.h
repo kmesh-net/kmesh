@@ -270,6 +270,11 @@ static inline int match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, struct bpf_sock
     if (preFixLen > 32) {
         return UNMATCHED;
     }
+    // A /0 rule matches every address. Handle it here, since shifting a
+    // 32-bit value by 32 below is undefined.
+    if (preFixLen == 0) {
+        return MATCHED;
+    }
     mask = 0xFFFFFFFF << (32 - preFixLen);
     if ((ruleIp & mask) == (bpf_ntohl(targetIP) & mask)) {
         return MATCHED;
