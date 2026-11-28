@@ -256,12 +256,117 @@ func testXDP(t *testing.T) {
 						}
 					},
 				},
+				{
+					// xdp can't check principals, so a principal-only DENY must not drop every source
+					name: "5_deny_principal_only_left_to_userspace",
+					setupInUserSpace: xdpAuthzPoliciesSetup(
+						xdpAuthzOnePolicy("bpfut_deny_principal_only", security.Action_DENY, &security.Match{
+							Principals: []*security.StringMatch{xdpAuthzPrincipal},
+						}),
+					),
+				},
+				{
+					// port 80 matches, but the principal still has to be checked, so no ALLOW verdict is cached
+					name: "6_allow_principal_and_port_left_to_userspace",
+					setupInUserSpace: xdpAuthzPoliciesSetup(
+						xdpAuthzOnePolicy("bpfut_allow_principal_port80", security.Action_ALLOW, &security.Match{
+							Principals:       []*security.StringMatch{xdpAuthzPrincipal},
+							DestinationPorts: []uint32{80},
+						}),
+					),
+				},
+				{
+					// a later port-only ALLOW must not pass the packet while an earlier principal DENY is undecided
+					name: "7_deny_principal_then_allow_port_left_to_userspace",
+					setupInUserSpace: xdpAuthzPoliciesSetup(
+						xdpAuthzOnePolicy("bpfut_deny_principal_only", security.Action_DENY, &security.Match{
+							Principals: []*security.StringMatch{xdpAuthzPrincipal},
+						}),
+						xdpAuthzOnePolicy("bpfut_allow_port80", security.Action_ALLOW, &security.Match{
+							DestinationPorts: []uint32{80},
+						}),
+					),
+				},
 			},
 		},
 	}
 
 	for _, tt := range XDPtests {
 		t.Run(tt.objFilename, tt.run())
+	}
+}
+
+var xdpAuthzPrincipal = &security.StringMatch{
+	MatchType: &security.StringMatch_Exact{Exact: "cluster.local/ns/default/sa/sleep"},
+}
+
+// xdpAuthzOnePolicy builds a policy with one rule, one clause and one match.
+func xdpAuthzOnePolicy(name string, action security.Action, match *security.Match) *security.Authorization {
+	return &security.Authorization{
+		Name:   name,
+		Action: action,
+		Rules: []*security.Rule{
+			{
+				Clauses: []*security.Clause{
+					{
+						Matches: []*security.Match{match},
+					},
+				},
+			},
+		},
+	}
+}
+
+// xdpAuthzPoliciesSetup attaches the given policies, in order, to the workload
+// behind 10.1.0.15. Policy keys start at 1.
+func xdpAuthzPoliciesSetup(policies ...*security.Authorization) func(t *testing.T, coll *ebpf.Collection) {
+	return func(t *testing.T, coll *ebpf.Collection) {
+		setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+			BpfLogLevel:  constants.BPF_LOG_DEBUG,
+			AuthzOffload: constants.ENABLED,
+		})
+
+		workload_xdp_registerTailCall(t, coll)
+		workload_setMapsEnv(t, coll)
+		if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   constants.BpfFsPath,
+			Cgroup2Path: constants.Cgroup2Path,
+		}); err != nil {
+			t.Fatalf("NewBpfWorkload failed: %v", err)
+		} else {
+			if err := workload.DeserialInit(); err != nil {
+				t.Fatalf("DeserialInit failed: %v", err)
+			}
+		}
+		workloadProcessor := controllerWorkload.NewProcessor(bpf2go.KmeshCgroupSockWorkloadMaps{
+			KmWlpolicy: coll.Maps["km_wlpolicy"],
+			KmFrontend: coll.Maps["km_frontend"],
+		})
+
+		workloadbpf := workloadProcessor.GetBpfCache()
+		if err := workloadbpf.FrontendUpdate(&bpfcache.FrontendKey{
+			Ip: [16]byte{10, 1, 0, 15},
+		}, &bpfcache.FrontendValue{
+			UpstreamId: 0x01,
+		}); err != nil {
+			t.Fatalf("FrontendUpdate failed: %v", err)
+		}
+
+		var policyIds [4]uint32
+		for i, policy := range policies {
+			policyIds[i] = uint32(i + 1)
+			if err := maps.AuthorizationUpdate(policyIds[i], policy); err != nil {
+				t.Fatalf("AuthorizationUpdate failed: %v", err)
+			}
+		}
+		if err := workloadbpf.WorkloadPolicyUpdate(&bpfcache.WorkloadPolicyKey{
+			WorklodId: 0x01,
+		}, &bpfcache.WorkloadPolicyValue{
+			PolicyIds: policyIds,
+		}); err != nil {
+			t.Fatalf("WorkloadPolicyUpdate failed: %v", err)
+		}
 	}
 }
 

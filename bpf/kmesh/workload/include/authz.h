@@ -494,15 +494,18 @@ static int clause_match_check(
         if (!match) {
             continue;
         }
+        // Currently, xdp only matches port and ip. A match that also has
+        // principals or namespaces can't be decided here, so if its port
+        // and ip part matches, leave the decision to userspace.
+        if (need_tail_call_to_user(match)) {
+            if (match_check(match, info, tuple_info) == MATCHED) {
+                match_ctx->need_tailcall_to_userspace = true;
+            }
+            continue;
+        }
         // if any match matches, it is a match
         if (match_check(match, info, tuple_info) == MATCHED) {
             return MATCHED;
-        }
-        // Currently, xdp only matches port and ip. If a principal
-        // or namespace type rule is configured, it needs to be sent
-        // to userspace for authorization.
-        if (need_tail_call_to_user(match)) {
-            match_ctx->need_tailcall_to_userspace = true;
         }
     }
     return UNMATCHED;
@@ -654,6 +657,12 @@ int policy_check(struct xdp_md *ctx)
         }
     }
 
+    if (matched && match_ctx->action != ISTIO__SECURITY__ACTION__DENY && match_ctx->need_tailcall_to_userspace) {
+        // An earlier match with principals or namespaces is still undecided
+        // and may be a DENY, so this ALLOW can't pass the packet in xdp.
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
+        return XDP_PASS;
+    }
     if (matched) {
         BPF_LOG(DEBUG, AUTH, "policy %s matched", match_ctx->policy_name);
         if (info.iph->version == IPV4_VERSION) {
