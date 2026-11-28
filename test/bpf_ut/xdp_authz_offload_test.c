@@ -106,3 +106,45 @@ int test2_check(const struct xdp_md *ctx)
     check_xdp_packet(ctx, &exp_status_code, NULL, NULL, NULL, NULL, 0);
     test_finish();
 }
+
+PKTGEN("xdp", "5_deny_ipv4_prefix0_matched")
+int test3_pktgen(struct xdp_md *ctx)
+{
+    const struct iphdr l3 = {
+        .version = 4,
+        .ihl = 5,
+        .tot_len = 40, /* 20 bytes l3 + 20 bytes l4 + 20 bytes data */
+        .id = 0x5438,
+        .frag_off = bpf_htons(IP_DF),
+        .ttl = 64,
+        .protocol = IPPROTO_TCP,
+        .saddr = SRC_IP,
+        .daddr = DEST_IP,
+    };
+    const struct tcphdr l4 = {
+        .source = bpf_htons(SRC_PORT),
+        .dest = bpf_htons(DEST_PORT),
+        .seq = 2922048129,
+        .doff = 0, /* no options */
+        .syn = 1,
+        .window = 64240,
+    };
+
+    return build_xdp_packet(ctx, NULL, &l3, &l4, NULL, 0);
+}
+
+JUMP("xdp", "5_deny_ipv4_prefix0_matched")
+int test3_jump(struct xdp_md *ctx)
+{
+    bpf_tail_call(ctx, &entry_call_map, 0);
+    return TEST_ERROR;
+}
+
+CHECK("xdp", "5_deny_ipv4_prefix0_matched")
+int test3_check(const struct xdp_md *ctx)
+{
+    const __u32 exp_status_code = XDP_DROP;
+    test_init();
+    check_xdp_packet(ctx, &exp_status_code, NULL, NULL, NULL, NULL, 0);
+    test_finish();
+}
