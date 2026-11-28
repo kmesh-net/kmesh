@@ -17,6 +17,7 @@
 package nets
 
 import (
+	"net"
 	"net/netip"
 	"testing"
 
@@ -66,6 +67,54 @@ func TestCopyIpByteFromSlice(t *testing.T) {
 			assert.Equal(t, tc.expected, out)
 		})
 	}
+}
+
+func TestCopyIpByteFromSlice_ReusedDestination(t *testing.T) {
+	t.Run("ipv6 followed by ipv4 clears stale bytes", func(t *testing.T) {
+		var dst [16]byte
+		ipv6 := net.ParseIP("2001::1").To16()
+		ipv4 := net.ParseIP("192.168.1.1").To4()
+
+		CopyIpByteFromSlice(&dst, ipv6)
+		assert.Equal(t, [16]byte{0x20, 0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1}, dst)
+
+		CopyIpByteFromSlice(&dst, ipv4)
+		expected := [16]byte{192, 168, 1, 1}
+		assert.Equal(t, expected, dst)
+		assert.True(t, isZeros(dst[4:]), "trailing 12 bytes must be zero for IPv4")
+		assert.Equal(t, "192.168.1.1", IpString(dst))
+	})
+
+	t.Run("ipv4 followed by ipv6 overwrites cleanly", func(t *testing.T) {
+		var dst [16]byte
+		ipv4 := net.ParseIP("192.168.1.1").To4()
+		ipv6 := net.ParseIP("2001::1").To16()
+
+		CopyIpByteFromSlice(&dst, ipv4)
+		CopyIpByteFromSlice(&dst, ipv6)
+		expected := [16]byte{0x20, 0x1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x1}
+		assert.Equal(t, expected, dst)
+		assert.Equal(t, "2001::1", IpString(dst))
+	})
+
+	t.Run("dirty destination cleared for ipv4", func(t *testing.T) {
+		dst := [16]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+		ipv4 := []byte{10, 0, 0, 1}
+
+		CopyIpByteFromSlice(&dst, ipv4)
+		expected := [16]byte{10, 0, 0, 1}
+		assert.Equal(t, expected, dst)
+		assert.Equal(t, "10.0.0.1", IpString(dst))
+	})
+
+	t.Run("invalid input does not modify destination", func(t *testing.T) {
+		dst := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+		invalid := []byte{1, 2, 3}
+
+		CopyIpByteFromSlice(&dst, invalid)
+		expected := [16]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}
+		assert.Equal(t, expected, dst)
+	})
 }
 
 func TestCompareIpByte(t *testing.T) {
